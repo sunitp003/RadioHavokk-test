@@ -1,0 +1,123 @@
+/* Sleek Scrollbar (Apple Music/Spotify Style) */
+.custom-scrollbar::-webkit-scrollbar {
+    width: 0px;
+    height: 4px; 
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+}
+.custom-scrollbar:hover::-webkit-scrollbar {
+    height: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.4);
+}
+
+/* Base Station Card Glassy Effect */
+.station-card {
+    min-height: 120px;
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.station-card:hover {
+    background: rgba(255, 255, 255, 0.06);
+    transform: translateY(-3px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+/* Glassy Active Card State */
+.station-card.active-card {
+    border-color: rgba(16, 185, 129, 0.5) !important;
+    background: rgba(16, 185, 129, 0.05) !important;
+    box-shadow: 0 8px 32px rgba(16, 185, 129, 0.15);
+}
+
+/* EQ Active Glow */
+.eq-active {
+    color: #34d399 !important;
+    border-color: rgba(16, 185, 129, 0.5) !important;
+    background: rgba(16, 185, 129, 0.1) !important;
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.2);
+}
+
+/* Volume Slider Customization */
+input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    background: white;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 0 5px rgba(0,0,0,0.5);
+    transition: transform 0.2s;
+}
+
+input[type=range]::-webkit-slider-thumb:hover {
+    transform: scale(1.3);
+}
+
+/* Now Playing Track Text Container */
+.station-card .now-playing {
+    display: block;
+    width: 100%;
+    min-height: 24px;
+    line-height: 24px;
+    overflow: hidden;
+    white-space: nowrap;
+    position: relative;
+    border-radius: 6px;
+    padding: 2px 8px;
+    background: rgba(0, 0, 0, 0.4);
+    color: #94a3b8;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.5);
+}
+
+.station-card .now-playing span {
+    color: #34d399; 
+}
+
+/* Marquee Scrolling Logic */
+.station-card .now-playing-track {
+    display: inline-flex;
+    align-items: center;
+    width: max-content;
+    min-width: 100%;
+    gap: 3rem;
+    will-change: transform;
+}
+
+.station-card .now-playing-copy {
+    display: inline-block;
+    flex: 0 0 auto;
+}
+
+.station-card .now-playing.is-scrolling .now-playing-track {
+    animation: now-playing-marquee 14s linear infinite;
+}
+
+.station-card .now-playing.is-scrolling:hover .now-playing-track {
+    animation-play-state: paused;
+}
+
+@keyframes now-playing-marquee {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .station-card:hover {
+        transform: none;
+    }
+    .station-card .now-playing.is-scrolling .now-playing-track {
+        animation: none;
+    }
+}
