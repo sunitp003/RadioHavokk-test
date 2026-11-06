@@ -229,6 +229,7 @@
         };
         let audioCtx = null, sourceNode = null, preampNode = null, eqFilters = [], bassFilter = null, trebleFilter = null;
         let splitter = null, merger = null, crossDelayL = null, crossDelayR = null;
+        let monoInputL = null, monoInputR = null, monoBus = null;
         let crossGainL = null, crossGainR = null, directGainL = null, directGainR = null;
         let convolver = null, reverbWet = null, reverbDry = null;
         let compressorNode = null, masterGainNode = null, stereoPannerNode = null;
@@ -238,7 +239,7 @@
         const eqPanel = document.getElementById('eqPanel');
         const eqBandsNode = document.getElementById('eqBands');
         const eqEngineStatus = document.getElementById('eqEngineStatus');
-        const EQ_DEFAULT_STATE = { bands: [...EQ_PRESETS.Flat], bass: 0, treble: 0, preamp: 0, compression: 0, balance: 0, ambience: 0, surround: 0 };
+        const EQ_DEFAULT_STATE = { bands: [...EQ_PRESETS.Flat], bass: 0, treble: 0, preamp: 0, compression: 0, balance: 0, ambience: 0, surround: 0, mono: false };
         let eqState = (() => {
             try {
                 const saved = JSON.parse(localStorage.getItem('radioHavokkEQ'));
@@ -248,7 +249,8 @@
                     ...saved,
                     bands: Array.isArray(saved.bands) && saved.bands.length === EQ_BANDS.length
                         ? saved.bands.map(value => Math.max(-12, Math.min(12, Number(value) || 0)))
-                        : [...EQ_DEFAULT_STATE.bands]
+                        : [...EQ_DEFAULT_STATE.bands],
+                    mono: Boolean(saved.mono)
                 };
             } catch (error) {
                 return { ...EQ_DEFAULT_STATE, bands: [...EQ_DEFAULT_STATE.bands] };
@@ -326,11 +328,16 @@
                 directGainL = audioCtx.createGain(); directGainR = audioCtx.createGain();
                 crossGainL = audioCtx.createGain(); crossGainR = audioCtx.createGain();
                 crossDelayL = audioCtx.createDelay(0.04); crossDelayR = audioCtx.createDelay(0.04);
+                monoInputL = audioCtx.createGain(); monoInputR = audioCtx.createGain(); monoBus = audioCtx.createGain();
+                monoInputL.gain.value = 0.5; monoInputR.gain.value = 0.5; monoBus.gain.value = 0;
                 trebleFilter.connect(splitter);
                 splitter.connect(directGainL, 0); directGainL.connect(merger, 0, 0);
                 splitter.connect(directGainR, 1); directGainR.connect(merger, 0, 1);
                 splitter.connect(crossDelayL, 0); crossDelayL.connect(crossGainL); crossGainL.connect(merger, 0, 1);
                 splitter.connect(crossDelayR, 1); crossDelayR.connect(crossGainR); crossGainR.connect(merger, 0, 0);
+                splitter.connect(monoInputL, 0); splitter.connect(monoInputR, 1);
+                monoInputL.connect(monoBus); monoInputR.connect(monoBus);
+                monoBus.connect(merger, 0, 0); monoBus.connect(merger, 0, 1);
 
                 reverbDry = audioCtx.createGain();
                 reverbWet = audioCtx.createGain();
@@ -373,10 +380,12 @@
             compressorNode.knee.setTargetAtTime(compression ? 6 : 0, audioCtx.currentTime, 0.04);
             const width = eqState.surround / 100;
             const cross = width * 0.28;
-            directGainL.gain.setTargetAtTime(1 - cross * 0.35, audioCtx.currentTime, 0.03);
-            directGainR.gain.setTargetAtTime(1 - cross * 0.35, audioCtx.currentTime, 0.03);
-            crossGainL.gain.setTargetAtTime(cross, audioCtx.currentTime, 0.03);
-            crossGainR.gain.setTargetAtTime(cross, audioCtx.currentTime, 0.03);
+            const stereoOn = !eqState.mono;
+            directGainL.gain.setTargetAtTime(stereoOn ? 1 - cross * 0.35 : 0, audioCtx.currentTime, 0.03);
+            directGainR.gain.setTargetAtTime(stereoOn ? 1 - cross * 0.35 : 0, audioCtx.currentTime, 0.03);
+            crossGainL.gain.setTargetAtTime(stereoOn ? cross : 0, audioCtx.currentTime, 0.03);
+            crossGainR.gain.setTargetAtTime(stereoOn ? cross : 0, audioCtx.currentTime, 0.03);
+            monoBus.gain.setTargetAtTime(eqState.mono ? 1 : 0, audioCtx.currentTime, 0.03);
             crossDelayL.delayTime.setTargetAtTime(0.008 + width * 0.012, audioCtx.currentTime, 0.03);
             crossDelayR.delayTime.setTargetAtTime(0.012 + width * 0.012, audioCtx.currentTime, 0.03);
             const wet = eqState.ambience / 100 * 0.45;
@@ -405,6 +414,9 @@
             document.getElementById('compressionValue').textContent = eqState.compression + '%';
             document.getElementById('balanceSlider').value = eqState.balance;
             document.getElementById('balanceValue').textContent = eqState.balance === 0 ? 'Center' : (eqState.balance < 0 ? 'L ' + Math.abs(eqState.balance) : 'R ' + eqState.balance);
+            const monoButton = document.getElementById('monoToggleBtn');
+            monoButton.classList.toggle('active', eqState.mono);
+            monoButton.textContent = eqState.mono ? 'On' : 'Off';
         }
 
         function setActivePreset(name) {
@@ -416,7 +428,7 @@
             eqState.bands = [...EQ_PRESETS[name]];
             if (name === 'Flat') {
                 eqState.bass = 0; eqState.treble = 0; eqState.preamp = 0;
-                eqState.compression = 0; eqState.balance = 0; eqState.ambience = 0; eqState.surround = 0;
+                eqState.compression = 0; eqState.balance = 0; eqState.ambience = 0; eqState.surround = 0; eqState.mono = false;
             }
             syncEQUI(); applyEQSettings(); setActivePreset(name); saveEQState();
         }
@@ -481,6 +493,10 @@
             eqState.balance = Number(event.target.value);
             document.getElementById('balanceValue').textContent = eqState.balance === 0 ? 'Center' : (eqState.balance < 0 ? 'L ' + Math.abs(eqState.balance) : 'R ' + eqState.balance);
             applyEQSettings(); setActivePreset(null);
+        });
+        document.getElementById('monoToggleBtn').addEventListener('click', () => {
+            eqState.mono = !eqState.mono;
+            syncEQUI(); applyEQSettings(); setActivePreset(null);
         });
 
         // ====== Keyboard Shortcuts ======
