@@ -184,6 +184,66 @@
 ];
         const clusters = ["d1cvqgmbcpg5yn", "d3hrxqn1tritdh", "d1tmej9eu7kw5c", "dgnlfn5aus0c6", "dz1aqwz3bmbil", "airhlspush"];
 
+        // ===== Adaptive performance profiles =====
+        const performanceModeSelect = document.getElementById('performanceModeSelect');
+        const PERFORMANCE_MODES = ['auto', 'low', 'balanced', 'high'];
+        function detectPerformanceMode() {
+            const memory = Number(navigator.deviceMemory || 0);
+            const cores = Number(navigator.hardwareConcurrency || 0);
+            if ((memory && memory <= 2) || (cores && cores <= 2)) return 'low';
+            if ((memory >= 6 && cores >= 6) || memory >= 8) return 'high';
+            return 'balanced';
+        }
+        function resolvePerformanceMode(mode) { return mode === 'auto' ? detectPerformanceMode() : mode; }
+        let requestedPerformanceMode = (() => {
+            try {
+                const saved = localStorage.getItem('radioHavokkPerformanceMode');
+                return PERFORMANCE_MODES.includes(saved) ? saved : 'auto';
+            } catch (_) { return 'auto'; }
+        })();
+        let performanceMode = resolvePerformanceMode(requestedPerformanceMode);
+        function applyPerformanceMode() {
+            performanceMode = resolvePerformanceMode(requestedPerformanceMode);
+            document.documentElement.dataset.performanceMode = performanceMode;
+            if (performanceModeSelect) {
+                performanceModeSelect.value = requestedPerformanceMode;
+                performanceModeSelect.title = requestedPerformanceMode === 'auto'
+                    ? 'Auto: detected ' + performanceMode + ' profile'
+                    : 'Performance profile: ' + performanceMode;
+            }
+        }
+        if (performanceModeSelect) performanceModeSelect.addEventListener('change', () => {
+            requestedPerformanceMode = PERFORMANCE_MODES.includes(performanceModeSelect.value) ? performanceModeSelect.value : 'auto';
+            try { localStorage.setItem('radioHavokkPerformanceMode', requestedPerformanceMode); } catch (_) {}
+            applyPerformanceMode();
+        });
+        applyPerformanceMode();
+
+        // ===== Chrome / Android lock-screen media controls =====
+        function updateMediaSessionStation(item) {
+            if (!('mediaSession' in navigator) || !item) return;
+            try {
+                if ('MediaMetadata' in window) navigator.mediaSession.metadata = new MediaMetadata({
+                    title: item.name, artist: 'Live Radio', album: 'Radio Havokk',
+                    artwork: [{ src: '/icon.svg', sizes: 'any', type: 'image/svg+xml' }]
+                });
+                navigator.mediaSession.playbackState = isPlayingState ? 'playing' : 'paused';
+            } catch (error) { console.debug('Media Session metadata unavailable:', error); }
+        }
+        function setupMediaSessionActions() {
+            if (!('mediaSession' in navigator)) return;
+            const handlers = {
+                play: () => { if (globalActiveIndex !== null && audioEngineNode.paused) audioEngineNode.play().then(triggerPlayStateUI).catch(triggerErrorStateUI); },
+                pause: () => audioEngineNode.pause(),
+                stop: () => audioEngineNode.pause(),
+                nexttrack: () => { if (globalActiveIndex !== null) { const i = (globalActiveIndex + 1) % radioDatabase.length; bootStreamEngine(radioDatabase[i], i); } },
+                previoustrack: () => { if (globalActiveIndex !== null) { const i = (globalActiveIndex - 1 + radioDatabase.length) % radioDatabase.length; bootStreamEngine(radioDatabase[i], i); } }
+            };
+            Object.entries(handlers).forEach(([action, handler]) => { try { navigator.mediaSession.setActionHandler(action, handler); } catch (_) {} });
+        }
+        setupMediaSessionActions();
+
+
         let activeTagFilter = 'all';
         let filterSearchText = '';
         let currentHlsEngineInstance = null;
@@ -289,7 +349,8 @@
         }
 
         function makeReverbImpulse(ctx) {
-            const length = Math.floor(ctx.sampleRate * 2.4);
+            const reverbSeconds = performanceMode === 'low' ? 0.8 : performanceMode === 'balanced' ? 1.5 : 2.4;
+            const length = Math.floor(ctx.sampleRate * reverbSeconds);
             const impulse = ctx.createBuffer(2, length, ctx.sampleRate);
             for (let channel = 0; channel < 2; channel++) {
                 const data = impulse.getChannelData(channel);
@@ -625,7 +686,7 @@
         const metadataInFlight = new Set();
         const nowPlayingObserver = ('IntersectionObserver' in window) ? new IntersectionObserver((entries) => {
             entries.forEach(entry => {
-                if (!entry.isIntersecting) return;
+                if (!entry.isIntersecting || document.hidden) return;
                 const node = entry.target.querySelector('.now-playing');
                 if (node) loadNowPlaying(node);
             });
@@ -702,6 +763,7 @@
         }
 
         setInterval(() => {
+            if (document.hidden) return; // Keep background work quiet; audio playback remains untouched.
             document.querySelectorAll('.station-card .now-playing').forEach(node => {
                 const rect = node.getBoundingClientRect();
                 if (rect.bottom >= 0 && rect.top <= window.innerHeight) {
@@ -746,6 +808,7 @@
         }
 
         async function bootStreamEngine(item, databaseIndex) {
+            updateMediaSessionStation(item);
             if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
             globalActiveIndex = databaseIndex;
             isPlayingState = false;
@@ -774,14 +837,40 @@
 
             if (targetStreamRoute.includes('.m3u8')) {
                 if (Hls.isSupported()) {
-                    currentHlsEngineInstance = new Hls({ maxBufferSize: 0, maxBufferLength: 10, liveSyncDuration: 6, liveMaxLatencyDuration: 12 });
-                    currentHlsEngineInstance.loadSource(targetStreamRoute);
-                    currentHlsEngineInstance.attachMedia(audioEngineNode);
-                    currentHlsEngineInstance.on(Hls.Events.MANIFEST_PARSED, () => {
-                        audioEngineNode.play().then(() => triggerPlayStateUI()).catch(() => triggerErrorStateUI());
+                    const profile = {
+                        low: { maxBufferLength: 6, maxMaxBufferLength: 10, maxBufferSize: 8 * 1024 * 1024, backBufferLength: 12 },
+                        balanced: { maxBufferLength: 10, maxMaxBufferLength: 16, maxBufferSize: 16 * 1024 * 1024, backBufferLength: 24 },
+                        high: { maxBufferLength: 14, maxMaxBufferLength: 22, maxBufferSize: 24 * 1024 * 1024, backBufferLength: 36 }
+                    }[performanceMode] || { maxBufferLength: 10, maxMaxBufferLength: 16, maxBufferSize: 16 * 1024 * 1024, backBufferLength: 24 };
+                    const hls = new Hls({
+                        enableWorker: performanceMode !== 'low', lowLatencyMode: false,
+                        maxBufferLength: profile.maxBufferLength, maxMaxBufferLength: profile.maxMaxBufferLength,
+                        maxBufferSize: profile.maxBufferSize, backBufferLength: profile.backBufferLength,
+                        liveSyncDuration: 6, liveMaxLatencyDuration: 12,
+                        manifestLoadingTimeOut: 15000, fragLoadingTimeOut: 20000
                     });
-                    currentHlsEngineInstance.on(Hls.Events.ERROR, (event, data) => {
-                        if (data.fatal) currentHlsEngineInstance.loadSource(item.link);
+                    currentHlsEngineInstance = hls;
+                    let networkRetries = 0, mediaRecoveries = 0;
+                    hls.loadSource(targetStreamRoute);
+                    hls.attachMedia(audioEngineNode);
+                    hls.on(Hls.Events.MANIFEST_PARSED, () => audioEngineNode.play().then(triggerPlayStateUI).catch(triggerErrorStateUI));
+                    hls.on(Hls.Events.ERROR, (event, data) => {
+                        if (!data.fatal || currentHlsEngineInstance !== hls) return;
+                        if (data.type === Hls.ErrorTypes.NETWORK_ERROR && networkRetries < 4) {
+                            networkRetries += 1;
+                            const delay = Math.min(1000 * (2 ** (networkRetries - 1)), 8000);
+                            footerSubtitleNode.textContent = 'Connection interrupted • retrying...';
+                            window.setTimeout(() => { if (currentHlsEngineInstance === hls) hls.startLoad(); }, delay);
+                        } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR && mediaRecoveries < 2) {
+                            mediaRecoveries += 1;
+                            footerSubtitleNode.textContent = 'Recovering audio decoder...';
+                            try { hls.recoverMediaError(); } catch (_) { triggerErrorStateUI(); }
+                        } else {
+                            footerSubtitleNode.textContent = 'Stream connection failed. Try this station again.';
+                            hls.destroy();
+                            if (currentHlsEngineInstance === hls) currentHlsEngineInstance = null;
+                            triggerErrorStateUI();
+                        }
                     });
                 } else if (audioEngineNode.canPlayType('application/vnd.apple.mpegurl')) {
                     audioEngineNode.src = targetStreamRoute;
@@ -797,6 +886,8 @@
 
         function triggerPlayStateUI() {
             isPlayingState = true;
+            if (globalActiveIndex !== null) updateMediaSessionStation(radioDatabase[globalActiveIndex]);
+            if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
             footerSubtitleNode.textContent = "Playing Live Broadcast";
             
             waveIconNode.innerHTML = `<i data-lucide="radio-tower" class="w-6 h-6"></i>`;
@@ -821,6 +912,7 @@
 
         function triggerPauseStateUI() {
             isPlayingState = false;
+            if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
             footerSubtitleNode.textContent = "Broadcast Paused";
             
             waveIconNode.innerHTML = `<i data-lucide="music" class="w-4 h-4 sm:w-5 sm:h-5"></i>`;
@@ -882,8 +974,30 @@
         mobilePlayPauseBtn.addEventListener('click', toggleGlobalPlayPause);
 
         volumeSlider.addEventListener('input', (e) => audioEngineNode.volume = e.target.value);
-        audioEngineNode.addEventListener('play', () => { if (!isPlayingState) triggerPlayStateUI(); });
+        audioEngineNode.addEventListener('play', () => {
+            if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+            if (!isPlayingState) triggerPlayStateUI();
+        });
         audioEngineNode.addEventListener('pause', () => { if (isPlayingState) triggerPauseStateUI(); });
+        audioEngineNode.addEventListener('waiting', () => { if (isPlayingState) footerSubtitleNode.textContent = 'Buffering live broadcast...'; });
+        audioEngineNode.addEventListener('stalled', () => { if (isPlayingState) footerSubtitleNode.textContent = 'Stream stalled • waiting for connection...'; });
+        audioEngineNode.addEventListener('playing', () => { if (!isPlayingState) triggerPlayStateUI(); });
+        audioEngineNode.addEventListener('error', () => { if (globalActiveIndex !== null) triggerErrorStateUI(); });
+
+        // Do not pause or recreate the media element when Chrome is minimized.
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                if (audioCtx && isPlayingState && audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+                document.querySelectorAll('.station-card .now-playing').forEach(node => {
+                    const url = decodeURIComponent(node.dataset.streamUrl || '');
+                    const cached = nowPlayingCache.get(url);
+                    if (!cached || Date.now() - cached.checkedAt >= 60000) loadNowPlaying(node);
+                });
+            }
+        });
+        window.addEventListener('pageshow', () => {
+            if (audioCtx && isPlayingState && audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+        });
 
         searchNode.addEventListener('input', (e) => {
             filterSearchText = e.target.value;

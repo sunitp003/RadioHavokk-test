@@ -128,6 +128,12 @@
             <div class="flex items-center justify-between sm:justify-end w-full sm:w-1/3 gap-3">
                 
                 <!-- EQ/Bass Boost Toggle -->
+                <label class="performance-control" for="performanceModeSelect" title="Automatically adapts stream buffering and visual effects to device capability">
+                    <span>Performance</span>
+                    <select id="performanceModeSelect" aria-label="Performance mode">
+                        <option value="auto">Auto</option><option value="low">Low</option><option value="balanced">Balanced</option><option value="high">High</option>
+                    </select>
+                </label>
                 <button id="eqToggleBtn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs text-zinc-400 hover:text-emerald-400 hover:border-emerald-500/50 transition-all" title="Open Advanced Equalizer">
                     <i data-lucide="audio-lines" class="w-3.5 h-3.5"></i>
                     <span id="eqStatusText">Equalizer</span>
@@ -219,7 +225,7 @@
     </div>
 
     <!-- Hidden Native Audio Node Container Interface -->
-    <audio id="audioStreamingEngine" class="hidden" crossorigin="anonymous"></audio>
+    <audio id="audioStreamingEngine" class="hidden" crossorigin="anonymous" preload="none" playsinline webkit-playsinline></audio>
 
     <!-- Core Interactive Client Logic JS -->
     <script src="script.js"></script>
