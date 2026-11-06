@@ -276,3 +276,7 @@ input[type=range]::-webkit-slider-thumb {
   .eq-band input { height: 108px; }
   .eq-tools-grid { grid-template-columns: 1fr; }
 }
+
+.eq-toggle { min-width:76px; margin:14px 0 8px; padding:9px 18px; border:1px solid rgba(167,139,250,.35); border-radius:999px; color:#c4b5fd; background:rgba(99,102,241,.12); font-size:12px; font-weight:800; }
+.eq-toggle.active { color:#fff; background:linear-gradient(100deg,#4f46e5,#8b5cf6); box-shadow:0 0 20px rgba(124,58,237,.25); }
+.eq-toggle-card { display:flex; flex-direction:column; align-items:flex-start; }
