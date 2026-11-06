@@ -295,7 +295,10 @@
         let crossGainL = null, crossGainR = null, directGainL = null, directGainR = null;
         let convolver = null, reverbWet = null, reverbDry = null;
         let compressorNode = null, masterGainNode = null, stereoPannerNode = null;
-        let eqEnabled = false;
+        let eqEnabled = localStorage.getItem('radioHavokkEQEnabled') === 'true';
+        let eqBypassGain = null, eqEffectsGain = null;
+        const eqMasterToggleBtn = document.getElementById('eqMasterToggleBtn');
+        const eqMasterToggleText = document.getElementById('eqMasterToggleText');
         const eqToggleBtn = document.getElementById('eqToggleBtn');
         const eqStatusText = document.getElementById('eqStatusText');
         const eqPanel = document.getElementById('eqPanel');
@@ -366,6 +369,11 @@
             try {
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                 sourceNode = audioCtx.createMediaElementSource(audioEngineNode);
+                // Keep a direct, bit-clean route available for master EQ bypass.
+                eqBypassGain = audioCtx.createGain();
+                eqEffectsGain = audioCtx.createGain();
+                sourceNode.connect(eqBypassGain);
+                eqBypassGain.connect(audioCtx.destination);
                 preampNode = audioCtx.createGain();
                 eqFilters = EQ_BANDS.map((band, index) => {
                     const filter = audioCtx.createBiquadFilter();
@@ -425,7 +433,8 @@
                 reverbWet.connect(compressorNode);
                 compressorNode.connect(masterGainNode);
                 masterGainNode.connect(stereoPannerNode);
-                stereoPannerNode.connect(audioCtx.destination);
+                stereoPannerNode.connect(eqEffectsGain);
+                eqEffectsGain.connect(audioCtx.destination);
                 applyEQSettings();
                 return true;
             } catch (error) {
@@ -460,6 +469,34 @@
             const wet = eqState.ambience / 100 * 0.45;
             reverbWet.gain.setTargetAtTime(wet, audioCtx.currentTime, 0.04);
             reverbDry.gain.setTargetAtTime(1 - wet * 0.35, audioCtx.currentTime, 0.04);
+            // Crossfade the complete processing chain against the untouched source.
+            // All EQ values remain stored while bypassed and return unchanged on re-enable.
+            eqBypassGain.gain.setTargetAtTime(eqEnabled ? 0 : 1, audioCtx.currentTime, 0.035);
+            eqEffectsGain.gain.setTargetAtTime(eqEnabled ? 1 : 0, audioCtx.currentTime, 0.035);
+        }
+
+        function syncEQMasterButton() {
+            if (!eqMasterToggleBtn) return;
+            eqMasterToggleBtn.classList.toggle('is-on', eqEnabled);
+            eqMasterToggleBtn.setAttribute('aria-pressed', String(eqEnabled));
+            eqMasterToggleText.textContent = eqEnabled ? 'EQ ON' : 'EQ OFF';
+            eqStatusText.textContent = eqEnabled ? 'EQ On' : 'EQ Off';
+        }
+
+        function toggleEQMaster() {
+            eqEnabled = !eqEnabled;
+            try { localStorage.setItem('radioHavokkEQEnabled', String(eqEnabled)); } catch (_) {}
+            syncEQMasterButton();
+            if (globalActiveIndex !== null) {
+                const ready = initAudioEQ();
+                if (ready) {
+                    if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+                    applyEQSettings();
+                    eqEngineStatus.textContent = eqEnabled ? 'All equalizer effects are ON' : 'Clean original audio • Equalizer bypassed';
+                }
+            } else {
+                eqEngineStatus.textContent = eqEnabled ? 'EQ enabled • Select a station to apply' : 'EQ off • Clean original audio';
+            }
         }
 
         function syncEQUI() {
@@ -514,15 +551,17 @@
 
         buildEQControls();
         syncEQUI();
+        syncEQMasterButton();
         saveEQState();
         eqToggleBtn.addEventListener('click', () => {
             openEQPanel();
             if (globalActiveIndex !== null) {
                 const ok = initAudioEQ();
                 if (ok && audioCtx.state === 'suspended') audioCtx.resume();
-                eqEngineStatus.textContent = ok ? 'Effects are active on the current stream' : 'Effects could not be initialized';
+                eqEngineStatus.textContent = ok ? (eqEnabled ? 'All equalizer effects are ON' : 'Clean original audio • Equalizer bypassed') : 'Effects could not be initialized';
             }
         });
+        eqMasterToggleBtn.addEventListener('click', toggleEQMaster);
         document.getElementById('eqCloseBtn').addEventListener('click', closeEQPanel);
         eqPanel.addEventListener('click', event => { if (event.target === eqPanel) closeEQPanel(); });
         document.addEventListener('keydown', event => { if (event.key === 'Escape') closeEQPanel(); });
