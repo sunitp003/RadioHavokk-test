@@ -204,50 +204,196 @@
         const mobileDockPlayIcon = document.getElementById('mobileDockPlayIcon');
         const volumeSlider = document.getElementById('volumeSlider');
 
-        // ====== Audio EQ / Bass Boost Context ======
-        let audioCtx, sourceNode, bassFilter, trebleFilter, eqEnabled = false;
+        // ====== Advanced 10-Band EQ + Spatial Audio Engine ======
+        const EQ_BANDS = [
+            { label: "31", frequency: 31 }, { label: "62", frequency: 62 },
+            { label: "125", frequency: 125 }, { label: "250", frequency: 250 },
+            { label: "500", frequency: 500 }, { label: "1k", frequency: 1000 },
+            { label: "2k", frequency: 2000 }, { label: "4k", frequency: 4000 },
+            { label: "8k", frequency: 8000 }, { label: "16k", frequency: 16000 }
+        ];
+        const EQ_PRESETS = {
+            Flat: [0,0,0,0,0,0,0,0,0,0],
+            Rock: [5,4,3,1,-1,-1,2,3,4,5],
+            Pop: [-1,1,3,4,2,0,2,3,2,1],
+            Classical: [4,3,2,1,-1,-1,0,2,3,4],
+            Vocal: [-2,-1,0,2,4,4,3,2,0,-1]
+        };
+        let audioCtx = null, sourceNode = null, eqFilters = [], bassFilter = null;
+        let splitter = null, merger = null, crossDelayL = null, crossDelayR = null;
+        let crossGainL = null, crossGainR = null, directGainL = null, directGainR = null;
+        let convolver = null, reverbWet = null, reverbDry = null;
+        let eqEnabled = false;
         const eqToggleBtn = document.getElementById('eqToggleBtn');
         const eqStatusText = document.getElementById('eqStatusText');
+        const eqPanel = document.getElementById('eqPanel');
+        const eqBandsNode = document.getElementById('eqBands');
+        const eqEngineStatus = document.getElementById('eqEngineStatus');
+        const eqState = { bands: [...EQ_PRESETS.Flat], bass: 0, ambience: 0, surround: 0 };
+
+        function buildEQControls() {
+            eqBandsNode.innerHTML = EQ_BANDS.map((band, index) => `
+                <label class="eq-band">
+                    <span class="eq-band-value" id="eqValue${index}">0</span>
+                    <input type="range" min="-12" max="12" step="1" value="0"
+                        data-band="${index}" aria-label="${band.frequency} Hz gain">
+                    <span class="eq-band-frequency">${band.label}<small>Hz</small></span>
+                </label>`).join('');
+            eqBandsNode.querySelectorAll('input[data-band]').forEach(input => {
+                input.addEventListener('input', () => {
+                    const i = Number(input.dataset.band);
+                    eqState.bands[i] = Number(input.value);
+                    document.getElementById('eqValue' + i).textContent = input.value > 0 ? '+' + input.value : input.value;
+                    applyEQSettings();
+                    setActivePreset(null);
+                });
+            });
+        }
+
+        function makeReverbImpulse(ctx) {
+            const length = Math.floor(ctx.sampleRate * 2.4);
+            const impulse = ctx.createBuffer(2, length, ctx.sampleRate);
+            for (let channel = 0; channel < 2; channel++) {
+                const data = impulse.getChannelData(channel);
+                for (let i = 0; i < length; i++) {
+                    data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, 2.2);
+                }
+            }
+            return impulse;
+        }
 
         function initAudioEQ() {
-            if (audioCtx) return;
+            if (audioCtx) return true;
             try {
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                 sourceNode = audioCtx.createMediaElementSource(audioEngineNode);
-                
+                eqFilters = EQ_BANDS.map((band, index) => {
+                    const filter = audioCtx.createBiquadFilter();
+                    filter.type = 'peaking';
+                    filter.frequency.value = band.frequency;
+                    filter.Q.value = 1.05;
+                    filter.gain.value = eqState.bands[index];
+                    return filter;
+                });
                 bassFilter = audioCtx.createBiquadFilter();
-                bassFilter.type = "lowshelf";
-                bassFilter.frequency.value = 200;
-                bassFilter.gain.value = 0; // default 0
+                bassFilter.type = 'lowshelf';
+                bassFilter.frequency.value = 100;
+                bassFilter.gain.value = eqState.bass;
 
-                trebleFilter = audioCtx.createBiquadFilter();
-                trebleFilter.type = "highshelf";
-                trebleFilter.frequency.value = 3000;
-                trebleFilter.gain.value = 0; // default 0
+                eqFilters.reduce((previous, current) => {
+                    previous.connect(current);
+                    return current;
+                }, sourceNode).connect(bassFilter);
 
-                sourceNode.connect(bassFilter);
-                bassFilter.connect(trebleFilter);
-                trebleFilter.connect(audioCtx.destination);
-            } catch (e) {
-                console.log("Web Audio API not supported on this browser or stream restricts CORS.");
+                // Stereo cross-feed creates a wider headphone/speaker image.
+                splitter = audioCtx.createChannelSplitter(2);
+                merger = audioCtx.createChannelMerger(2);
+                directGainL = audioCtx.createGain(); directGainR = audioCtx.createGain();
+                crossGainL = audioCtx.createGain(); crossGainR = audioCtx.createGain();
+                crossDelayL = audioCtx.createDelay(0.04); crossDelayR = audioCtx.createDelay(0.04);
+                bassFilter.connect(splitter);
+                splitter.connect(directGainL, 0); directGainL.connect(merger, 0, 0);
+                splitter.connect(directGainR, 1); directGainR.connect(merger, 0, 1);
+                splitter.connect(crossDelayL, 0); crossDelayL.connect(crossGainL); crossGainL.connect(merger, 0, 1);
+                splitter.connect(crossDelayR, 1); crossDelayR.connect(crossGainR); crossGainR.connect(merger, 0, 0);
+
+                reverbDry = audioCtx.createGain();
+                reverbWet = audioCtx.createGain();
+                convolver = audioCtx.createConvolver();
+                convolver.buffer = makeReverbImpulse(audioCtx);
+                merger.connect(reverbDry); reverbDry.connect(audioCtx.destination);
+                merger.connect(convolver); convolver.connect(reverbWet); reverbWet.connect(audioCtx.destination);
+                applyEQSettings();
+                return true;
+            } catch (error) {
+                console.warn('Advanced audio processing unavailable:', error);
+                eqEngineStatus.textContent = 'Audio effects unavailable for this stream/browser (CORS may be restricting audio access).';
+                return false;
             }
         }
 
-        eqToggleBtn.addEventListener('click', () => {
-            initAudioEQ();
+        function applyEQSettings() {
             if (!audioCtx) return;
-            eqEnabled = !eqEnabled;
-            if (eqEnabled) {
-                bassFilter.gain.value = 10; // Boost Bass
-                trebleFilter.gain.value = 4; // Boost Treble (Clarity/Surround feel)
-                eqToggleBtn.classList.add('eq-active');
-                eqStatusText.textContent = "HQ On";
-            } else {
-                bassFilter.gain.value = 0;
-                trebleFilter.gain.value = 0;
-                eqToggleBtn.classList.remove('eq-active');
-                eqStatusText.textContent = "HQ Off";
+            eqFilters.forEach((filter, i) => filter.gain.setTargetAtTime(eqState.bands[i], audioCtx.currentTime, 0.025));
+            bassFilter.gain.setTargetAtTime(eqState.bass, audioCtx.currentTime, 0.025);
+            const width = eqState.surround / 100;
+            const cross = width * 0.28;
+            directGainL.gain.setTargetAtTime(1 - cross * 0.35, audioCtx.currentTime, 0.03);
+            directGainR.gain.setTargetAtTime(1 - cross * 0.35, audioCtx.currentTime, 0.03);
+            crossGainL.gain.setTargetAtTime(cross, audioCtx.currentTime, 0.03);
+            crossGainR.gain.setTargetAtTime(cross, audioCtx.currentTime, 0.03);
+            crossDelayL.delayTime.setTargetAtTime(0.008 + width * 0.012, audioCtx.currentTime, 0.03);
+            crossDelayR.delayTime.setTargetAtTime(0.012 + width * 0.012, audioCtx.currentTime, 0.03);
+            const wet = eqState.ambience / 100 * 0.45;
+            reverbWet.gain.setTargetAtTime(wet, audioCtx.currentTime, 0.04);
+            reverbDry.gain.setTargetAtTime(1 - wet * 0.35, audioCtx.currentTime, 0.04);
+        }
+
+        function syncEQUI() {
+            eqBandsNode.querySelectorAll('input[data-band]').forEach(input => {
+                const i = Number(input.dataset.band);
+                input.value = eqState.bands[i];
+                const value = eqState.bands[i];
+                document.getElementById('eqValue' + i).textContent = value > 0 ? '+' + value : value;
+            });
+            document.getElementById('bassBoostSlider').value = eqState.bass;
+            document.getElementById('bassBoostValue').textContent = eqState.bass + ' dB';
+            document.getElementById('ambienceSlider').value = eqState.ambience;
+            document.getElementById('ambienceValue').textContent = eqState.ambience + '%';
+            document.getElementById('surroundSlider').value = eqState.surround;
+            document.getElementById('surroundValue').textContent = eqState.surround + '%';
+        }
+
+        function setActivePreset(name) {
+            document.querySelectorAll('.eq-preset').forEach(button => button.classList.toggle('active', button.dataset.preset === name));
+        }
+
+        function setPreset(name) {
+            if (!EQ_PRESETS[name]) return;
+            eqState.bands = [...EQ_PRESETS[name]];
+            if (name === 'Flat') { eqState.bass = 0; eqState.ambience = 0; eqState.surround = 0; }
+            syncEQUI(); applyEQSettings(); setActivePreset(name);
+        }
+
+        function openEQPanel() {
+            eqPanel.classList.add('open');
+            eqPanel.setAttribute('aria-hidden', 'false');
+            if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+        }
+        function closeEQPanel() {
+            eqPanel.classList.remove('open');
+            eqPanel.setAttribute('aria-hidden', 'true');
+        }
+
+        buildEQControls();
+        syncEQUI();
+        eqToggleBtn.addEventListener('click', () => {
+            openEQPanel();
+            if (globalActiveIndex !== null) {
+                const ok = initAudioEQ();
+                if (ok && audioCtx.state === 'suspended') audioCtx.resume();
+                eqEngineStatus.textContent = ok ? 'Effects are active on the current stream' : 'Effects could not be initialized';
             }
+        });
+        document.getElementById('eqCloseBtn').addEventListener('click', closeEQPanel);
+        eqPanel.addEventListener('click', event => { if (event.target === eqPanel) closeEQPanel(); });
+        document.addEventListener('keydown', event => { if (event.key === 'Escape') closeEQPanel(); });
+        document.querySelectorAll('.eq-preset').forEach(button => button.addEventListener('click', () => setPreset(button.dataset.preset)));
+        document.getElementById('eqResetBtn').addEventListener('click', () => setPreset('Flat'));
+        document.getElementById('bassBoostSlider').addEventListener('input', event => {
+            eqState.bass = Number(event.target.value);
+            document.getElementById('bassBoostValue').textContent = eqState.bass + ' dB';
+            applyEQSettings();
+        });
+        document.getElementById('ambienceSlider').addEventListener('input', event => {
+            eqState.ambience = Number(event.target.value);
+            document.getElementById('ambienceValue').textContent = eqState.ambience + '%';
+            applyEQSettings();
+        });
+        document.getElementById('surroundSlider').addEventListener('input', event => {
+            eqState.surround = Number(event.target.value);
+            document.getElementById('surroundValue').textContent = eqState.surround + '%';
+            applyEQSettings();
         });
 
         // ====== Keyboard Shortcuts ======
@@ -486,9 +632,7 @@
         }
 
         async function bootStreamEngine(item, databaseIndex) {
-            if(audioCtx && audioCtx.state === 'suspended') {
-                audioCtx.resume();
-            }
+            if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
             globalActiveIndex = databaseIndex;
             isPlayingState = false;
             buildInterfaceGrid();
@@ -500,6 +644,7 @@
             audioEngineNode.pause();
             audioEngineNode.src = '';
 
+            if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
             footerTitleNode.textContent = item.name;
             footerSubtitleNode.textContent = "Connecting to transmission link...";
             
