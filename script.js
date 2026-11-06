@@ -177,7 +177,9 @@
     { "name": "Akashvani Ratnagiri", "link": "https://d1cvqgmbcpg5yn.cloudfront.net/615b82703c7e8a4c/615b82703c7e8a4c.m3u8", "tags": ["Akashvani", "Marathi"] }
 ];
         const clusters = ["d1cvqgmbcpg5yn", "d3hrxqn1tritdh", "d1tmej9eu7kw5c", "dgnlfn5aus0c6", "dz1aqwz3bmbil", "airhlspush"];
-        let activeTagFilter = 'all';        let filterSearchText = '';
+
+        let activeTagFilter = 'all';
+        let filterSearchText = '';
         let currentHlsEngineInstance = null;
         let globalActiveIndex = null;
         let isPlayingState = false;
@@ -277,7 +279,7 @@
         }
 
         function makeReverbImpulse(ctx) {
-            const length = Math.floor(ctx.sampleRate * 1.8);
+            const length = Math.floor(ctx.sampleRate * 2.4);
             const impulse = ctx.createBuffer(2, length, ctx.sampleRate);
             for (let channel = 0; channel < 2; channel++) {
                 const data = impulse.getChannelData(channel);
@@ -334,14 +336,14 @@
                 reverbWet = audioCtx.createGain();
                 convolver = audioCtx.createConvolver();
                 convolver.buffer = makeReverbImpulse(audioCtx);
-                merger.connect(reverbDry);
-                merger.connect(convolver);
                 compressorNode = audioCtx.createDynamicsCompressor();
                 compressorNode.knee.value = 6;
                 compressorNode.attack.value = 0.003;
                 compressorNode.release.value = 0.18;
                 masterGainNode = audioCtx.createGain();
                 stereoPannerNode = audioCtx.createStereoPanner();
+                merger.connect(reverbDry);
+                merger.connect(convolver);
                 reverbDry.connect(compressorNode);
                 convolver.connect(reverbWet);
                 reverbWet.connect(compressorNode);
@@ -358,7 +360,8 @@
         }
 
         function applyEQSettings() {
-            if (!audioCtx) return;            eqFilters.forEach((filter, i) => filter.gain.setTargetAtTime(eqState.bands[i], audioCtx.currentTime, 0.025));
+            if (!audioCtx) return;
+            eqFilters.forEach((filter, i) => filter.gain.setTargetAtTime(eqState.bands[i], audioCtx.currentTime, 0.025));
             preampNode.gain.setTargetAtTime(Math.pow(10, eqState.preamp / 20), audioCtx.currentTime, 0.025);
             bassFilter.gain.setTargetAtTime(eqState.bass, audioCtx.currentTime, 0.025);
             trebleFilter.gain.setTargetAtTime(eqState.treble, audioCtx.currentTime, 0.025);
@@ -420,7 +423,8 @@
 
         function openEQPanel() {
             eqPanel.classList.add('open');
-            eqPanel.setAttribute('aria-hidden', 'false');            if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+            eqPanel.setAttribute('aria-hidden', 'false');
+            if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
         }
         function closeEQPanel() {
             eqPanel.classList.remove('open');
@@ -537,6 +541,7 @@
 
                 let playIcon = (globalActiveIndex === rawDbIndex && isPlayingState) ? 'pause' : 'play';
                 let favIconClass = isFav ? 'text-red-500 fill-red-500' : 'text-zinc-500 hover:text-white';
+
                 let chips = '';
                 data.tags.slice(0, 2).forEach(tag => {
                     if (tag) chips += `<span class="bg-white/5 border border-white/10 text-zinc-400 text-[10px] px-2 py-0.5 rounded-full">${tag}</span>`;
@@ -619,7 +624,8 @@
                 renderNowPlaying(node, cached);
                 return;
             }
-            if (metadataInFlight.has(streamUrl)) return;            metadataInFlight.add(streamUrl);
+            if (metadataInFlight.has(streamUrl)) return;
+            metadataInFlight.add(streamUrl);
             node.innerHTML = `<span><i data-lucide="music-4" class="w-3 h-3 inline pb-0.5"></i></span> Checking info...`;
             if(window.lucide) lucide.createIcons({root: node});
             
@@ -797,3 +803,74 @@
                 currentDockIcon.setAttribute('data-lucide', 'play');
                 currentDockIcon.classList.add('ml-1');
             }
+            if(currentMobileDockIcon) {
+                currentMobileDockIcon.setAttribute('data-lucide', 'play');
+                currentMobileDockIcon.classList.add('ml-0.5');
+            }
+            
+            if(window.lucide) lucide.createIcons();
+            syncCardPlayButtons();
+        }
+
+        function triggerErrorStateUI() {
+            isPlayingState = false;
+            footerSubtitleNode.textContent = "Stream offline or failed.";
+            waveIconNode.innerHTML = `<i data-lucide="triangle-alert" class="w-5 h-5 sm:w-6 sm:h-6"></i>`;
+            waveIconNode.className = "w-10 h-10 sm:w-12 sm:h-12 bg-red-500/20 border border-red-500/30 rounded-xl flex items-center justify-center text-red-400 shrink-0";
+            
+            if(dockPlayIcon) {
+                dockPlayIcon.setAttribute('data-lucide', 'play');
+                dockPlayIcon.classList.add('ml-1');
+            }
+            if(mobileDockPlayIcon) {
+                mobileDockPlayIcon.setAttribute('data-lucide', 'play');
+                mobileDockPlayIcon.classList.add('ml-0.5');
+            }
+            if(window.lucide) lucide.createIcons();
+            buildInterfaceGrid();
+        }
+
+        function syncCardPlayButtons() {
+            document.querySelectorAll('.station-card').forEach((card) => {
+                const playBtn = card.querySelector('.play-icon-node');
+                const btnParent = card.querySelector('.play-btn');
+                if (card.classList.contains('active-card') && playBtn) {
+                    playBtn.setAttribute('data-lucide', isPlayingState ? 'pause' : 'play');
+                    if(isPlayingState) playBtn.classList.remove('ml-0.5'); else playBtn.classList.add('ml-0.5');
+                    btnParent.classList.add('translate-y-0', 'opacity-100');
+                } else if (playBtn) {
+                    playBtn.setAttribute('data-lucide', 'play');
+                    playBtn.classList.add('ml-0.5');
+                    btnParent.classList.remove('translate-y-0', 'opacity-100');
+                }
+            });
+            if(window.lucide) lucide.createIcons();
+        }
+
+        bottomPlayPauseBtn.addEventListener('click', toggleGlobalPlayPause);
+        mobilePlayPauseBtn.addEventListener('click', toggleGlobalPlayPause);
+
+        volumeSlider.addEventListener('input', (e) => audioEngineNode.volume = e.target.value);
+        audioEngineNode.addEventListener('play', () => { if (!isPlayingState) triggerPlayStateUI(); });
+        audioEngineNode.addEventListener('pause', () => { if (isPlayingState) triggerPauseStateUI(); });
+
+        searchNode.addEventListener('input', (e) => {
+            filterSearchText = e.target.value;
+            buildInterfaceGrid();
+        });
+
+        // Updated Filter Tab Classes Logic
+        document.querySelectorAll('.filter-tab').forEach(tab => {
+            tab.addEventListener('click', (e) => {
+                document.querySelectorAll('.filter-tab').forEach(t => {
+                    t.className = "filter-tab inactive-filter-tab px-5 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all border border-white/10 bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-white flex items-center gap-2";
+                });
+
+                e.currentTarget.className = "filter-tab active-filter-tab px-5 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all border border-white/10 bg-white text-black shadow-md flex items-center gap-2";
+
+                activeTagFilter = e.currentTarget.dataset.target;
+                buildInterfaceGrid();
+            });
+        });
+
+        buildInterfaceGrid();
