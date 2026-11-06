@@ -360,6 +360,7 @@
         }
 
         function applyEQSettings() {
+            saveEQState();
             if (!audioCtx) return;
             eqFilters.forEach((filter, i) => filter.gain.setTargetAtTime(eqState.bands[i], audioCtx.currentTime, 0.025));
             preampNode.gain.setTargetAtTime(Math.pow(10, eqState.preamp / 20), audioCtx.currentTime, 0.025);
@@ -381,7 +382,6 @@
             const wet = eqState.ambience / 100 * 0.45;
             reverbWet.gain.setTargetAtTime(wet, audioCtx.currentTime, 0.04);
             reverbDry.gain.setTargetAtTime(1 - wet * 0.35, audioCtx.currentTime, 0.04);
-            saveEQState();
         }
 
         function syncEQUI() {
