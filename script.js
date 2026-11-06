@@ -95,7 +95,7 @@
     { "name": "Radio Retro Bollywood 90s", "link": "https://stream.zeno.fm/u0hrd3xkzhhvv", "tags": ["Hindi", "Bollywood", "90s"] }, 
     { "name": "Club Mirchi", "link": "https://stream-141.zeno.fm/6n6ewddtad0uv", "tags": ["Hindi", "Bollywood", "90s"] }, 
     { "name": "Mohabbat Radio", "link": "https://stream.zeno.fm/t2ekq8zsgtzuv", "tags": ["Hindi", "Bollywood", "90s"] }, 
-    { "name": "Hindi Non Stop", "link": "http://s5.voscast.com:8216/stream", "tags": ["Hindi", "Bollywood", "Retro", "90s"] }, 
+    { "name": "Non Stop Hindi", "link": "http://s5.voscast.com:8216/stream", "tags": ["Hindi", "Bollywood", "Retro", "90s"] }, 
     { "name": "Radio Gaana", "link": "https://sp14.instainternet.com/8044/stream", "tags": ["Hindi", "Bollywood", "Retro"] }, 
     { "name": "Radio Namkin Live", "link": "https://stream-19.zeno.fm/84h7fsbaqv5tv?zs=5fWIjd5dTEWImmlwdIadqA", "tags": ["Hindi", "Bollywood", "Retro", "90s", "00s", "Modern"] }, 
     { "name": "Radio Nasha", "link": "https://stream-289.surfernetwork.com/zu59ykebs2zuv", "tags": ["Hindi", "Bollywood", "Retro", "90s", "00s", "Modern"] }, 
@@ -642,7 +642,10 @@
         async function loadNowPlaying(node) {
             const encodedUrl = node.dataset.streamUrl;
             if (!encodedUrl) return;
-            const streamUrl = decodeURIComponent(encodedUrl);
+            const storedStreamUrl = decodeURIComponent(encodedUrl);
+            const streamUrl = storedStreamUrl === "https://stream.tamilfmradios.com/?url=http://198.245.61.103:8113/stream?type=http&nocache=2"
+                ? "http://198.245.61.103:8113/stream?type=http&nocache=2"
+                : storedStreamUrl;
             const cached = nowPlayingCache.get(streamUrl);
             if (cached && Date.now() - cached.checkedAt < 60000) {
                 renderNowPlaying(node, cached);
@@ -763,7 +766,11 @@
             waveIconNode.className = "w-12 h-12 bg-emerald-900/30 border border-emerald-500/30 rounded-xl flex items-center justify-center text-emerald-400";
             if(window.lucide) lucide.createIcons({ root: waveIconNode });
 
-            const targetStreamRoute = await runMatrixResolution(item.link);
+            const targetStreamRoute = item.link === "http://s5.voscast.com:8216/stream"
+                ? "/api/stream"
+                : item.link === "https://stream.tamilfmradios.com/?url=http://198.245.61.103:8113/stream?type=http&nocache=2"
+                    ? "/api/smile-fm"
+                    : await runMatrixResolution(item.link);
 
             if (targetStreamRoute.includes('.m3u8')) {
                 if (Hls.isSupported()) {

@@ -6,6 +6,14 @@
       "dest": "/api/now-playing.js"
     },
     {
+      "src": "/api/stream",
+      "dest": "/api/stream.js"
+    },
+    {
+      "src": "/api/smile-fm",
+      "dest": "/api/smile-fm.js"
+    },
+    {
       "src": "/(.*)",
       "dest": "/$1"
     }
