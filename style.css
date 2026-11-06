@@ -257,3 +257,22 @@ input[type=range]::-webkit-slider-thumb {
 @media (prefers-reduced-motion: reduce) {
   .station-card { transition: none; }
 }
+
+/* ===== Pro Audio Lab: 15-band + mastering controls ===== */
+.eq-panel { width: min(1080px, 100%); }
+.eq-bands { grid-template-columns: repeat(15, minmax(0, 1fr)); gap: 7px; }
+.eq-band { gap: 9px; }
+.eq-band input { width: 18px; height: 132px; }
+.eq-band-frequency { font-size: 9px; letter-spacing: -.03em; }
+.eq-band-value { font-size: 10px; }
+.eq-tools-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.eq-preset { padding: 8px 13px; }
+.eq-tool-card input { accent-color: #8b5cf6; }
+@media (max-width: 900px) {
+  .eq-bands { grid-template-columns: repeat(8, minmax(0, 1fr)); }
+}
+@media (max-width: 700px) {
+  .eq-bands { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .eq-band input { height: 108px; }
+  .eq-tools-grid { grid-template-columns: 1fr; }
+}
