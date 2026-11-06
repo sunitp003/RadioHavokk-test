@@ -297,6 +297,7 @@
         let compressorNode = null, masterGainNode = null, stereoPannerNode = null;
         let eqEnabled = localStorage.getItem('radioHavokkEQEnabled') === 'true';
         let eqBypassGain = null, eqEffectsGain = null;
+        let eqProcessingConnected = false;
         const eqMasterToggleBtn = document.getElementById('eqMasterToggleBtn');
         const eqMasterToggleText = document.getElementById('eqMasterToggleText');
         const eqToggleBtn = document.getElementById('eqToggleBtn');
@@ -393,6 +394,7 @@
                 trebleFilter.gain.value = eqState.treble;
 
                 sourceNode.connect(preampNode);
+                eqProcessingConnected = true;
                 eqFilters.reduce((previous, current) => {
                     previous.connect(current);
                     return current;
@@ -447,6 +449,14 @@
         function applyEQSettings() {
             saveEQState();
             if (!audioCtx) return;
+            // Disconnect the heavy processing graph entirely while bypassed to save CPU.
+            if (eqEnabled && !eqProcessingConnected) {
+                sourceNode.connect(preampNode);
+                eqProcessingConnected = true;
+            } else if (!eqEnabled && eqProcessingConnected) {
+                sourceNode.disconnect(preampNode);
+                eqProcessingConnected = false;
+            }
             eqFilters.forEach((filter, i) => filter.gain.setTargetAtTime(eqState.bands[i], audioCtx.currentTime, 0.025));
             preampNode.gain.setTargetAtTime(Math.pow(10, eqState.preamp / 20), audioCtx.currentTime, 0.025);
             bassFilter.gain.setTargetAtTime(eqState.bass, audioCtx.currentTime, 0.025);
