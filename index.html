@@ -16,7 +16,7 @@
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <!-- PWA Web Manifest Configuration -->
-    <!-- <link rel="manifest" href='data:application/json,{"name":"RadioHavokk","short_name":"RadioHavokk","description":"All India Radio Fallback Grid Engine","start_url":".","display":"standalone","background_color":"#000000","theme_color":"#10b981","orientation":"portrait","icons":[{"src":"data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📻</text></svg>","sizes":"512x512","type":"image/svg+xml"}]}' /> -->
+    <!-- <link rel="manifest" href='data:application/json,{"name":"RadioHavokk","short_name":"RadioHavokk","description":"All India Radio Fallback Grid Engine","start_url":".","display":"standalone","background_color":"#000000","theme_color":"#6366f1","orientation":"portrait","icons":[{"src":"data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📻</text></svg>","sizes":"512x512","type":"image/svg+xml"}]}' /> -->
     <link rel="manifest" href="/manifest.webmanifest">
     <link rel="stylesheet" href="style.css">
 </head>
@@ -24,15 +24,15 @@
 <body class="bg-[#09090b] text-zinc-100 min-h-screen flex flex-col font-sans select-none pb-32 sm:pb-28 relative overflow-x-hidden">
 
     <!-- Background Ambient Gradient Blobs for Glassy Effect -->
-    <div class="fixed top-[-10%] left-[-10%] w-[40vw] h-[40vw] bg-emerald-600/20 rounded-full blur-[100px] pointer-events-none z-0"></div>
-    <div class="fixed bottom-[-10%] right-[-10%] w-[30vw] h-[30vw] bg-blue-600/10 rounded-full blur-[100px] pointer-events-none z-0"></div>
+    <div class="fixed top-[-10%] left-[-10%] w-[40vw] h-[40vw] bg-indigo-600/25 rounded-full blur-[100px] pointer-events-none z-0"></div>
+    <div class="fixed bottom-[-10%] right-[-10%] w-[30vw] h-[30vw] bg-violet-600/20 rounded-full blur-[100px] pointer-events-none z-0"></div>
 
     <!-- Glassy Navbar Layout Header -->
     <header class="border-b border-white/5 bg-black/40 backdrop-blur-xl sticky top-0 z-50 px-4 py-3 shadow-lg">
         <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 relative z-10">
             <div class="flex items-center justify-between w-full sm:w-auto">
                 <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/20 shrink-0">
+                    <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-violet-600 rounded-xl flex items-center justify-center shadow-lg shadow-violet-500/25 shrink-0">
                         <i data-lucide="radio" class="w-5 h-5 text-white"></i>
                     </div>
                     <div>
@@ -44,7 +44,7 @@
                     </div>
                 </div>
                 <!-- PWA Install Button (Hidden by default, shown via JS if supported) -->
-                <button id="pwaInstallBtn" class="hidden sm:hidden bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 px-3 py-1.5 rounded-lg text-xs font-bold items-center gap-1.5 transition-all active:scale-95">
+                <button id="pwaInstallBtn" class="hidden sm:hidden bg-indigo-600/20 text-violet-300 border border-indigo-400/30 px-3 py-1.5 rounded-lg text-xs font-bold items-center gap-1.5 transition-all active:scale-95">
                     <i data-lucide="download" class="w-3.5 h-3.5"></i> Install
                 </button>
             </div>
@@ -155,8 +155,13 @@
                 <button data-preset="Pop" class="eq-preset">Pop</button>
                 <button data-preset="Classical" class="eq-preset">Classical</button>
                 <button data-preset="Vocal" class="eq-preset">Vocal</button>
+                <button data-preset="Jazz" class="eq-preset">Jazz</button>
+                <button data-preset="EDM" class="eq-preset">EDM</button>
+                <button data-preset="Acoustic" class="eq-preset">Acoustic</button>
+                <button data-preset="Hip-Hop" class="eq-preset">Hip-Hop</button>
+                <button data-preset="Podcast" class="eq-preset">Podcast</button>
             </div>
-            <div class="eq-section-title"><span>10-BAND EQUALIZER</span><span class="eq-muted">−12 dB to +12 dB</span></div>
+            <div class="eq-section-title"><span>15-BAND PRO EQUALIZER</span><span class="eq-muted">−12 dB to +12 dB</span></div>
             <div id="eqBands" class="eq-bands"></div>
             <div class="eq-tools-grid">
                 <div class="eq-tool-card">
@@ -173,6 +178,31 @@
                     <div class="eq-tool-heading"><span>Surround Width</span><strong id="surroundValue">0%</strong></div>
                     <input id="surroundSlider" type="range" min="0" max="100" step="1" value="0">
                     <p class="eq-muted">Cross-channel stereo widening</p>
+                </div>
+                <div class="eq-tool-card">
+                    <div class="eq-tool-heading"><span>Preamp Gain</span><strong id="preampValue">0 dB</strong></div>
+                    <input id="preampSlider" type="range" min="-12" max="12" step="1" value="0">
+                    <p class="eq-muted">Adjust overall input level before EQ</p>
+                </div>
+                <div class="eq-tool-card">
+                    <div class="eq-tool-heading"><span>Treble Control</span><strong id="trebleValue">0 dB</strong></div>
+                    <input id="trebleSlider" type="range" min="-12" max="12" step="1" value="0">
+                    <p class="eq-muted">High-frequency shelf enhancement</p>
+                </div>
+                <div class="eq-tool-card">
+                    <div class="eq-tool-heading"><span>Compressor / Limiter</span><strong id="compressionValue">0%</strong></div>
+                    <input id="compressionSlider" type="range" min="0" max="100" step="1" value="0">
+                    <p class="eq-muted">Control peaks and even out loudness</p>
+                </div>
+                <div class="eq-tool-card">
+                    <div class="eq-tool-heading"><span>Stereo Balance</span><strong id="balanceValue">Center</strong></div>
+                    <input id="balanceSlider" type="range" min="-100" max="100" step="1" value="0">
+                    <p class="eq-muted">Shift audio left or right</p>
+                </div>
+                <div class="eq-tool-card eq-toggle-card">
+                    <div class="eq-tool-heading"><span>Mono Mode</span><strong>Channel mix</strong></div>
+                    <button id="monoToggleBtn" class="eq-toggle" type="button">Off</button>
+                    <p class="eq-muted">Mix left and right channels into mono</p>
                 </div>
             </div>
             <div class="eq-panel-footer">
