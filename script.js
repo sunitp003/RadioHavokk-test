@@ -724,12 +724,11 @@
     document.body.appendChild(eqPanel);
 
     const bandHost = eqPanel.querySelector('#eqBandControls');
-    const freqs = [62,125,250,500,1000,2000,4000,8000];
-    const labels = ['62','125','250','500','1k','2k','4k','8k'];
-    freqs.forEach((frequency, index) => {
+    const labels = ['31','62','125','250','500','1k','2k','4k','8k','16k'];
+    labels.forEach((label, index) => {
         const item = document.createElement('label');
         item.className = 'flex flex-col items-center gap-2 text-[10px] text-zinc-400';
-        item.innerHTML = '<input class="eq-band-slider h-24 w-5 accent-emerald-400" type="range" min="-12" max="12" value="0" step="1" orient="vertical" data-index="' + index + '"><span>' + labels[index] + '</span><output class="text-emerald-300">0</output>';
+        item.innerHTML = '<input class="eq-band-slider h-24 w-5 accent-emerald-400" type="range" min="-12" max="12" value="0" step="1" orient="vertical" data-index="' + index + '"><span>' + label + '</span><output class="text-emerald-300">0</output>';
         bandHost.appendChild(item);
     });
 
@@ -744,7 +743,9 @@
 
     function setBand(index, value) {
         const bands = window.radioHavokkEqBands || [];
-        if (bands[index]) bands[index].gain.value = Number(value);
+        if (index === 0 && bassFilter) bassFilter.gain.value = Number(value);
+        else if (index === 9 && trebleFilter) trebleFilter.gain.value = Number(value);
+        else if (bands[index - 1]) bands[index - 1].gain.value = Number(value);
         const slider = bandHost.querySelector('[data-index="' + index + '"]');
         if (slider) slider.nextElementSibling.nextElementSibling.value = value;
     }
@@ -753,12 +754,12 @@
     });
 
     const presets = {
-        flat: [0,0,0,0,0,0,0,0],
-        bass: [8,7,5,2,0,0,-1,-2],
-        rock: [5,4,2,-1,-2,2,4,5],
-        pop: [-1,1,4,5,2,-1,1,3],
-        classical: [4,3,1,0,-2,1,3,4],
-        vocal: [-3,-1,1,4,5,4,1,-1]
+        flat: [0,0,0,0,0,0,0,0,0,0],
+        bass: [8,7,5,2,0,0,-1,-2,-2,-1],
+        rock: [5,5,4,2,-1,-2,2,4,5,5],
+        pop: [-1,-1,1,4,5,2,-1,1,3,2],
+        classical: [4,3,3,1,0,-2,1,3,4,4],
+        vocal: [-3,-2,-1,1,4,5,4,1,-1,-2]
     };
     eqPanel.querySelector('#eqPreset').addEventListener('change', event => {
         const values = presets[event.target.value] || presets.flat;
@@ -767,8 +768,7 @@
             slider.value = value;
             setBand(index, value);
         });
-        if (bassFilter) bassFilter.gain.value = event.target.value === 'bass' ? 5 : 0;
-        if (trebleFilter) trebleFilter.gain.value = 0;
+
     });
 
     const spatial = eqPanel.querySelector('#spatialSlider');
