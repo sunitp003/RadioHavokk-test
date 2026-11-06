@@ -177,8 +177,7 @@
     { "name": "Akashvani Ratnagiri", "link": "https://d1cvqgmbcpg5yn.cloudfront.net/615b82703c7e8a4c/615b82703c7e8a4c.m3u8", "tags": ["Akashvani", "Marathi"] }
 ];
         const clusters = ["d1cvqgmbcpg5yn", "d3hrxqn1tritdh", "d1tmej9eu7kw5c", "dgnlfn5aus0c6", "dz1aqwz3bmbil", "airhlspush"];
-        let activeTagFilter = 'all';
-        let filterSearchText = '';
+        let activeTagFilter = 'all';        let filterSearchText = '';
         let currentHlsEngineInstance = null;
         let globalActiveIndex = null;
         let isPlayingState = false;
@@ -335,6 +334,8 @@
                 reverbWet = audioCtx.createGain();
                 convolver = audioCtx.createConvolver();
                 convolver.buffer = makeReverbImpulse(audioCtx);
+                merger.connect(reverbDry);
+                merger.connect(convolver);
                 compressorNode = audioCtx.createDynamicsCompressor();
                 compressorNode.knee.value = 6;
                 compressorNode.attack.value = 0.003;
@@ -357,8 +358,7 @@
         }
 
         function applyEQSettings() {
-            if (!audioCtx) return;
-            eqFilters.forEach((filter, i) => filter.gain.setTargetAtTime(eqState.bands[i], audioCtx.currentTime, 0.025));
+            if (!audioCtx) return;            eqFilters.forEach((filter, i) => filter.gain.setTargetAtTime(eqState.bands[i], audioCtx.currentTime, 0.025));
             preampNode.gain.setTargetAtTime(Math.pow(10, eqState.preamp / 20), audioCtx.currentTime, 0.025);
             bassFilter.gain.setTargetAtTime(eqState.bass, audioCtx.currentTime, 0.025);
             trebleFilter.gain.setTargetAtTime(eqState.treble, audioCtx.currentTime, 0.025);
@@ -537,7 +537,6 @@
 
                 let playIcon = (globalActiveIndex === rawDbIndex && isPlayingState) ? 'pause' : 'play';
                 let favIconClass = isFav ? 'text-red-500 fill-red-500' : 'text-zinc-500 hover:text-white';
-
                 let chips = '';
                 data.tags.slice(0, 2).forEach(tag => {
                     if (tag) chips += `<span class="bg-white/5 border border-white/10 text-zinc-400 text-[10px] px-2 py-0.5 rounded-full">${tag}</span>`;
@@ -798,45 +797,3 @@
                 currentDockIcon.setAttribute('data-lucide', 'play');
                 currentDockIcon.classList.add('ml-1');
             }
-            if(currentMobileDockIcon) {
-                currentMobileDockIcon.setAttribute('data-lucide', 'play');
-                currentMobileDockIcon.classList.add('ml-0.5');
-            }
-            
-            if(window.lucide) lucide.createIcons();
-            syncCardPlayButtons();
-        }
-
-        function triggerErrorStateUI() {
-            isPlayingState = false;
-            footerSubtitleNode.textContent = "Stream offline or failed.";
-            waveIconNode.innerHTML = `<i data-lucide="triangle-alert" class="w-5 h-5 sm:w-6 sm:h-6"></i>`;
-            waveIconNode.className = "w-10 h-10 sm:w-12 sm:h-12 bg-red-500/20 border border-red-500/30 rounded-xl flex items-center justify-center text-red-400 shrink-0";
-            
-            if(dockPlayIcon) {
-                dockPlayIcon.setAttribute('data-lucide', 'play');
-                dockPlayIcon.classList.add('ml-1');
-            }
-            if(mobileDockPlayIcon) {
-                mobileDockPlayIcon.setAttribute('data-lucide', 'play');
-                mobileDockPlayIcon.classList.add('ml-0.5');
-            }
-            if(window.lucide) lucide.createIcons();
-            buildInterfaceGrid();
-        }
-
-        function syncCardPlayButtons() {
-            document.querySelectorAll('.station-card').forEach((card) => {
-                const playBtn = card.querySelector('.play-icon-node');
-                const btnParent = card.querySelector('.play-btn');
-                if (card.classList.contains('active-card') && playBtn) {
-                    playBtn.setAttribute('data-lucide', isPlayingState ? 'pause' : 'play');
-                    if(isPlayingState) playBtn.classList.remove('ml-0.5'); else playBtn.classList.add('ml-0.5');
-                    btnParent.classList.add('translate-y-0', 'opacity-100');
-                } else if (playBtn) {
-                    playBtn.setAttribute('data-lucide', 'play');
-                    playBtn.classList.add('ml-0.5');
-                    btnParent.classList.remove('translate-y-0', 'opacity-100');
-                }
-            });
-            if(window.lucide) lucide.createIcons();
