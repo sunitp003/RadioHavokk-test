@@ -122,9 +122,9 @@
             <div class="flex items-center justify-between sm:justify-end w-full sm:w-1/3 gap-3">
                 
                 <!-- EQ/Bass Boost Toggle -->
-                <button id="eqToggleBtn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs text-zinc-400 hover:text-emerald-400 hover:border-emerald-500/50 transition-all" title="Toggle Bass Boost & Spatial Audio">
+                <button id="eqToggleBtn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs text-zinc-400 hover:text-emerald-400 hover:border-emerald-500/50 transition-all" title="Open Advanced Equalizer">
                     <i data-lucide="audio-lines" class="w-3.5 h-3.5"></i>
-                    <span id="eqStatusText">HQ Off</span>
+                    <span id="eqStatusText">Equalizer</span>
                 </button>
 
                 <!-- Volume Slider -->
@@ -135,6 +135,51 @@
                 </div>
             </div>
         </div>
+    </div>
+
+
+    <!-- Advanced Equalizer / Spatial Audio Panel -->
+    <div id="eqPanel" class="eq-overlay" aria-hidden="true">
+        <section class="eq-panel glass-panel" role="dialog" aria-modal="true" aria-labelledby="eqPanelTitle">
+            <div class="eq-panel-header">
+                <div>
+                    <p class="eq-eyebrow">RADIO HAVOKK • AUDIO LAB</p>
+                    <h2 id="eqPanelTitle">Advanced Equalizer</h2>
+                    <p class="eq-muted">Shape your sound in real time</p>
+                </div>
+                <button id="eqCloseBtn" class="eq-close" aria-label="Close equalizer">×</button>
+            </div>
+            <div class="eq-presets" id="eqPresets">
+                <button data-preset="Flat" class="eq-preset active">Flat</button>
+                <button data-preset="Rock" class="eq-preset">Rock</button>
+                <button data-preset="Pop" class="eq-preset">Pop</button>
+                <button data-preset="Classical" class="eq-preset">Classical</button>
+                <button data-preset="Vocal" class="eq-preset">Vocal</button>
+            </div>
+            <div class="eq-section-title"><span>10-BAND EQUALIZER</span><span class="eq-muted">−12 dB to +12 dB</span></div>
+            <div id="eqBands" class="eq-bands"></div>
+            <div class="eq-tools-grid">
+                <div class="eq-tool-card">
+                    <div class="eq-tool-heading"><span>Bass Boost</span><strong id="bassBoostValue">0 dB</strong></div>
+                    <input id="bassBoostSlider" type="range" min="0" max="12" step="1" value="0">
+                    <p class="eq-muted">Low-frequency enhancement</p>
+                </div>
+                <div class="eq-tool-card">
+                    <div class="eq-tool-heading"><span>Ambience / Reverb</span><strong id="ambienceValue">0%</strong></div>
+                    <input id="ambienceSlider" type="range" min="0" max="60" step="1" value="0">
+                    <p class="eq-muted">Adds room depth and ambience</p>
+                </div>
+                <div class="eq-tool-card">
+                    <div class="eq-tool-heading"><span>Surround Width</span><strong id="surroundValue">0%</strong></div>
+                    <input id="surroundSlider" type="range" min="0" max="100" step="1" value="0">
+                    <p class="eq-muted">Cross-channel stereo widening</p>
+                </div>
+            </div>
+            <div class="eq-panel-footer">
+                <span id="eqEngineStatus" class="eq-muted">Ready • Select a station to listen</span>
+                <button id="eqResetBtn" class="eq-reset">Reset to Flat</button>
+            </div>
+        </section>
     </div>
 
     <!-- Hidden Native Audio Node Container Interface -->
