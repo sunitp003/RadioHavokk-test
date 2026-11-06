@@ -3,6 +3,10 @@
 
 <head>
     <meta charset="UTF-8">
+    <meta name="theme-color" content="#080b18">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Radio Havokk">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Radio Havokk</title>
     
@@ -18,6 +22,8 @@
     <!-- PWA Web Manifest Configuration -->
     <!-- <link rel="manifest" href='data:application/json,{"name":"RadioHavokk","short_name":"RadioHavokk","description":"All India Radio Fallback Grid Engine","start_url":".","display":"standalone","background_color":"#000000","theme_color":"#6366f1","orientation":"portrait","icons":[{"src":"data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📻</text></svg>","sizes":"512x512","type":"image/svg+xml"}]}' /> -->
     <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="icon" href="/icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/icon.svg">
     <link rel="stylesheet" href="style.css">
 </head>
 
@@ -44,7 +50,7 @@
                     </div>
                 </div>
                 <!-- PWA Install Button (Hidden by default, shown via JS if supported) -->
-                <button id="pwaInstallBtn" class="hidden sm:hidden bg-indigo-600/20 text-violet-300 border border-indigo-400/30 px-3 py-1.5 rounded-lg text-xs font-bold items-center gap-1.5 transition-all active:scale-95">
+                <button id="pwaInstallBtn" class="hidden bg-indigo-600/20 text-violet-300 border border-indigo-400/30 px-3 py-1.5 rounded-lg text-xs font-bold items-center gap-1.5 transition-all active:scale-95">
                     <i data-lucide="download" class="w-3.5 h-3.5"></i> Install
                 </button>
             </div>
@@ -161,7 +167,7 @@
                 <button data-preset="Hip-Hop" class="eq-preset">Hip-Hop</button>
                 <button data-preset="Podcast" class="eq-preset">Podcast</button>
             </div>
-            <div class="eq-section-title"><span>15-BAND PRO EQUALIZER</span><span class="eq-muted">−12 dB to +12 dB</span></div>
+            <div class="eq-section-title"><span>5-BAND PRO EQUALIZER</span><span class="eq-muted">−12 dB to +12 dB</span></div>
             <div id="eqBands" class="eq-bands"></div>
             <div class="eq-tools-grid">
                 <div class="eq-tool-card">

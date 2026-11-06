@@ -82,7 +82,7 @@ input[type=range]::-webkit-slider-thumb:hover {
 }
 
 .station-card .now-playing span {
-    color: #34d399; 
+    color: #00fffb; 
 }
 
 /* Marquee Scrolling Logic */
@@ -211,9 +211,9 @@ header {
 .station-card .now-playing {
   background: rgba(8, 12, 32, .58);
   border: 1px solid rgba(129, 140, 248, .10);
-  color: #a5b4fc;
+  color: #00fffb;
 }
-.station-card .now-playing span { color: #a5b4fc; }
+.station-card .now-playing span { color: #00fffb; }
 .eq-overlay {
   background: rgba(5, 8, 24, .82);
   backdrop-filter: blur(22px);
@@ -280,3 +280,13 @@ input[type=range]::-webkit-slider-thumb {
 .eq-toggle { min-width:76px; margin:14px 0 8px; padding:9px 18px; border:1px solid rgba(167,139,250,.35); border-radius:999px; color:#c4b5fd; background:rgba(99,102,241,.12); font-size:12px; font-weight:800; }
 .eq-toggle.active { color:#fff; background:linear-gradient(100deg,#4f46e5,#8b5cf6); box-shadow:0 0 20px rgba(124,58,237,.25); }
 .eq-toggle-card { display:flex; flex-direction:column; align-items:flex-start; }
+
+
+/* Five-band EQ layout */
+.eq-bands { grid-template-columns: repeat(5, minmax(0, 1fr)) !important; gap: clamp(10px, 3vw, 28px); }
+.eq-band input { width: 24px; height: 150px; }
+@media (max-width: 700px) {
+  .eq-bands { grid-template-columns: repeat(5, minmax(0, 1fr)) !important; gap: 8px; padding: 16px 8px; }
+  .eq-band input { width: 22px; height: 112px; }
+  .eq-band-frequency { font-size: 10px; }
+}

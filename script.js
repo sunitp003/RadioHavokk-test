@@ -1,6 +1,9 @@
 // PWA Service Worker Registration
-        if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('/sw.js').catch(err => console.log('SW failed'));
+        if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js', { scope: '/', updateViaCache: 'none' })
+                    .catch(error => console.warn('PWA service worker registration failed:', error));
+            });
         }
 
         // if ('serviceWorker' in navigator) {
@@ -21,10 +24,8 @@
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
             deferredPrompt = e;
-            pwaInstallBtn.classList.remove('hidden');
-            pwaInstallBtn.classList.add('flex');
-            desktopInstallBtn.classList.remove('hidden');
-            desktopInstallBtn.classList.add('flex');
+            if (pwaInstallBtn) { pwaInstallBtn.classList.remove('hidden'); pwaInstallBtn.classList.add('flex'); }
+            if (desktopInstallBtn) { desktopInstallBtn.classList.remove('hidden'); desktopInstallBtn.classList.add('flex'); }
         });
 
         const handleInstallClick = async () => {
@@ -32,15 +33,20 @@
                 deferredPrompt.prompt();
                 const { outcome } = await deferredPrompt.userChoice;
                 if (outcome === 'accepted') {
-                    pwaInstallBtn.classList.add('hidden');
-                    desktopInstallBtn.classList.add('hidden');
+                    if (pwaInstallBtn) pwaInstallBtn.classList.add('hidden');
+                    if (desktopInstallBtn) desktopInstallBtn.classList.add('hidden');
                 }
                 deferredPrompt = null;
             }
         };
 
-        pwaInstallBtn.addEventListener('click', handleInstallClick);
-        desktopInstallBtn.addEventListener('click', handleInstallClick);
+        if (pwaInstallBtn) pwaInstallBtn.addEventListener('click', handleInstallClick);
+        if (desktopInstallBtn) desktopInstallBtn.addEventListener('click', handleInstallClick);
+        window.addEventListener('appinstalled', () => {
+            deferredPrompt = null;
+            if (pwaInstallBtn) pwaInstallBtn.classList.add('hidden');
+            if (desktopInstallBtn) desktopInstallBtn.classList.add('hidden');
+        });
 
         const radioDatabase = [
     { "name": "BigFM 106.2", "link": "https://listen.openstream.co/6983/audio", "tags": ["Bollywood", "Hindi", "90s", "00s", "Modern"] }, 
@@ -205,27 +211,23 @@
         const volumeSlider = document.getElementById('volumeSlider');
 
         // ====== Advanced 10-Band EQ + Spatial Audio Engine ======
+        // ====== 5-Band EQ + Full Spatial Audio Engine ======
         const EQ_BANDS = [
-            { label: "31", frequency: 31 }, { label: "50", frequency: 50 },
-            { label: "80", frequency: 80 }, { label: "125", frequency: 125 },
-            { label: "200", frequency: 200 }, { label: "315", frequency: 315 },
-            { label: "500", frequency: 500 }, { label: "800", frequency: 800 },
-            { label: "1.25k", frequency: 1250 }, { label: "2k", frequency: 2000 },
-            { label: "3.15k", frequency: 3150 }, { label: "5k", frequency: 5000 },
-            { label: "8k", frequency: 8000 }, { label: "12.5k", frequency: 12500 },
+            { label: "60", frequency: 60 }, { label: "250", frequency: 250 },
+            { label: "1k", frequency: 1000 }, { label: "4k", frequency: 4000 },
             { label: "16k", frequency: 16000 }
         ];
         const EQ_PRESETS = {
-            Flat:       [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-            Rock:       [5,5,4,3,2,0,-1,-1,0,2,3,4,5,5,4],
-            Pop:        [-1,0,1,3,4,4,3,1,0,2,3,3,2,1,0],
-            Classical:  [4,4,3,2,1,0,-1,-1,0,1,2,3,4,4,3],
-            Vocal:      [-3,-2,-1,1,3,4,5,5,4,3,2,1,0,-1,-2],
-            Jazz:       [3,3,2,1,-1,-2,0,2,3,4,3,2,3,3,2],
-            EDM:        [5,5,4,1,-1,-2,1,3,4,3,1,3,4,5,5],
-            Acoustic:   [3,2,1,0,-1,0,2,3,3,2,2,3,3,2,1],
-            "Hip-Hop":  [5,5,4,3,1,-1,-2,0,1,2,2,1,0,-1,-2],
-            Podcast:    [-2,-1,0,2,4,5,5,4,3,1,0,-1,-2,-3,-3]
+            Flat: [0, 0, 0, 0, 0],
+            Rock: [5, 2, -1, 3, 5],
+            Pop: [0, 4, 1, 3, 1],
+            Classical: [4, 1, -1, 2, 4],
+            Vocal: [-2, 3, 5, 2, -1],
+            Jazz: [3, -1, 2, 3, 3],
+            EDM: [5, -1, 3, 2, 5],
+            Acoustic: [2, 0, 3, 2, 2],
+            "Hip-Hop": [5, 1, 0, 2, -1],
+            Podcast: [-1, 4, 4, 0, -3]
         };
         let audioCtx = null, sourceNode = null, preampNode = null, eqFilters = [], bassFilter = null, trebleFilter = null;
         let splitter = null, merger = null, crossDelayL = null, crossDelayR = null;
@@ -247,8 +249,14 @@
                 return {
                     ...EQ_DEFAULT_STATE,
                     ...saved,
-                    bands: Array.isArray(saved.bands) && saved.bands.length === EQ_BANDS.length
-                        ? saved.bands.map(value => Math.max(-12, Math.min(12, Number(value) || 0)))
+                    bands: Array.isArray(saved.bands)
+                        ? (saved.bands.length === EQ_BANDS.length
+                            ? saved.bands
+                            : saved.bands.length === 15
+                                ? [[0,1,2],[3,4,5],[6,7,8],[9,10,11],[12,13,14]].map(group =>
+                                    Math.round(group.reduce((sum, index) => sum + (Number(saved.bands[index]) || 0), 0) / group.length))
+                                : [...EQ_DEFAULT_STATE.bands]
+                          ).map(value => Math.max(-12, Math.min(12, Number(value) || 0)))
                         : [...EQ_DEFAULT_STATE.bands],
                     mono: Boolean(saved.mono)
                 };
