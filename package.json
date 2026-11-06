@@ -1,8 +1,0 @@
-{
-  "name": "radio-havokk",
-  "version": "2.1.0",
-  "private": true,
-  "scripts": {
-    "start": "node server.js"
-  }
-}
