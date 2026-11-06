@@ -1,13 +1,17 @@
 // PWA Service Worker Registration
         if ('serviceWorker' in navigator) {
-            const swCode = `
-                self.addEventListener('install', e => self.skipWaiting());
-                self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
-                self.addEventListener('fetch', e => e.respondWith(fetch(e.request).catch(() => new Response('Offline'))));
-            `;
-            const blob = new Blob([swCode], { type: 'application/javascript' });
-            navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(err => console.log('SW failed'));
+                navigator.serviceWorker.register('/sw.js').catch(err => console.log('SW failed'));
         }
+
+        // if ('serviceWorker' in navigator) {
+        //     const swCode = `
+        //         self.addEventListener('install', e => self.skipWaiting());
+        //         self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
+        //         self.addEventListener('fetch', e => e.respondWith(fetch(e.request).catch(() => new Response('Offline'))));
+        //     `;
+        //     const blob = new Blob([swCode], { type: 'application/javascript' });
+        //     navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(err => console.log('SW failed'));
+        // }
 
         // PWA Install Prompt Logic
         let deferredPrompt;
@@ -48,7 +52,13 @@
         let globalActiveIndex = null;
         let isPlayingState = false;
 
-        let favoritesList = JSON.parse(localStorage.getItem('radioFavorites')) || [];
+        let favoritesList = [];
+        try {
+            let parsed = JSON.parse(localStorage.getItem('radioFavorites'));
+            favoritesList = Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+            favoritesList = [];
+        }
 
         const gridNode = document.getElementById('cardsLayoutGrid');
         const searchNode = document.getElementById('globalSearch');
@@ -397,13 +407,17 @@
             waveIconNode.innerHTML = `<i data-lucide="radio-tower" class="w-6 h-6"></i>`;
             waveIconNode.className = "w-10 h-10 sm:w-12 sm:h-12 bg-emerald-500/20 border border-emerald-500/40 rounded-xl flex items-center justify-center text-emerald-400 animate-pulse shrink-0";
             
-            if(dockPlayIcon) {
-                dockPlayIcon.setAttribute('data-lucide', 'pause');
-                dockPlayIcon.classList.remove('ml-1'); 
+            // Naya code: Har baar naya icon select karo
+            const currentDockIcon = document.getElementById('dockPlayIcon');
+            const currentMobileDockIcon = document.getElementById('mobileDockPlayIcon');
+
+            if(currentDockIcon) {
+                currentDockIcon.setAttribute('data-lucide', 'pause');
+                currentDockIcon.classList.remove('ml-1'); 
             }
-            if(mobileDockPlayIcon) {
-                mobileDockPlayIcon.setAttribute('data-lucide', 'pause');
-                mobileDockPlayIcon.classList.remove('ml-0.5');
+            if(currentMobileDockIcon) {
+                currentMobileDockIcon.setAttribute('data-lucide', 'pause');
+                currentMobileDockIcon.classList.remove('ml-0.5');
             }
             
             if(window.lucide) lucide.createIcons();
@@ -417,13 +431,17 @@
             waveIconNode.innerHTML = `<i data-lucide="music" class="w-4 h-4 sm:w-5 sm:h-5"></i>`;
             waveIconNode.className = "w-10 h-10 sm:w-12 sm:h-12 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center text-zinc-500 shrink-0";
             
-            if(dockPlayIcon) {
-                dockPlayIcon.setAttribute('data-lucide', 'play');
-                dockPlayIcon.classList.add('ml-1');
+            // Naya code: Har baar naya icon select karo
+            const currentDockIcon = document.getElementById('dockPlayIcon');
+            const currentMobileDockIcon = document.getElementById('mobileDockPlayIcon');
+
+            if(currentDockIcon) {
+                currentDockIcon.setAttribute('data-lucide', 'play');
+                currentDockIcon.classList.add('ml-1');
             }
-            if(mobileDockPlayIcon) {
-                mobileDockPlayIcon.setAttribute('data-lucide', 'play');
-                mobileDockPlayIcon.classList.add('ml-0.5');
+            if(currentMobileDockIcon) {
+                currentMobileDockIcon.setAttribute('data-lucide', 'play');
+                currentMobileDockIcon.classList.add('ml-0.5');
             }
             
             if(window.lucide) lucide.createIcons();
