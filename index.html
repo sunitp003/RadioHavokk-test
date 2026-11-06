@@ -155,8 +155,13 @@
                 <button data-preset="Pop" class="eq-preset">Pop</button>
                 <button data-preset="Classical" class="eq-preset">Classical</button>
                 <button data-preset="Vocal" class="eq-preset">Vocal</button>
+                <button data-preset="Jazz" class="eq-preset">Jazz</button>
+                <button data-preset="EDM" class="eq-preset">EDM</button>
+                <button data-preset="Acoustic" class="eq-preset">Acoustic</button>
+                <button data-preset="Hip-Hop" class="eq-preset">Hip-Hop</button>
+                <button data-preset="Podcast" class="eq-preset">Podcast</button>
             </div>
-            <div class="eq-section-title"><span>10-BAND EQUALIZER</span><span class="eq-muted">−12 dB to +12 dB</span></div>
+            <div class="eq-section-title"><span>15-BAND PRO EQUALIZER</span><span class="eq-muted">−12 dB to +12 dB</span></div>
             <div id="eqBands" class="eq-bands"></div>
             <div class="eq-tools-grid">
                 <div class="eq-tool-card">
@@ -173,6 +178,26 @@
                     <div class="eq-tool-heading"><span>Surround Width</span><strong id="surroundValue">0%</strong></div>
                     <input id="surroundSlider" type="range" min="0" max="100" step="1" value="0">
                     <p class="eq-muted">Cross-channel stereo widening</p>
+                </div>
+                <div class="eq-tool-card">
+                    <div class="eq-tool-heading"><span>Preamp Gain</span><strong id="preampValue">0 dB</strong></div>
+                    <input id="preampSlider" type="range" min="-12" max="12" step="1" value="0">
+                    <p class="eq-muted">Adjust overall input level before EQ</p>
+                </div>
+                <div class="eq-tool-card">
+                    <div class="eq-tool-heading"><span>Treble Control</span><strong id="trebleValue">0 dB</strong></div>
+                    <input id="trebleSlider" type="range" min="-12" max="12" step="1" value="0">
+                    <p class="eq-muted">High-frequency shelf enhancement</p>
+                </div>
+                <div class="eq-tool-card">
+                    <div class="eq-tool-heading"><span>Compressor / Limiter</span><strong id="compressionValue">0%</strong></div>
+                    <input id="compressionSlider" type="range" min="0" max="100" step="1" value="0">
+                    <p class="eq-muted">Control peaks and even out loudness</p>
+                </div>
+                <div class="eq-tool-card">
+                    <div class="eq-tool-heading"><span>Stereo Balance</span><strong id="balanceValue">Center</strong></div>
+                    <input id="balanceSlider" type="range" min="-100" max="100" step="1" value="0">
+                    <p class="eq-muted">Shift audio left or right</p>
                 </div>
             </div>
             <div class="eq-panel-footer">
