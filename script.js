@@ -177,7 +177,6 @@
     { "name": "Akashvani Ratnagiri", "link": "https://d1cvqgmbcpg5yn.cloudfront.net/615b82703c7e8a4c/615b82703c7e8a4c.m3u8", "tags": ["Akashvani", "Marathi"] }
 ];
         const clusters = ["d1cvqgmbcpg5yn", "d3hrxqn1tritdh", "d1tmej9eu7kw5c", "dgnlfn5aus0c6", "dz1aqwz3bmbil", "airhlspush"];
-
         let activeTagFilter = 'all';
         let filterSearchText = '';
         let currentHlsEngineInstance = null;
@@ -206,30 +205,58 @@
 
         // ====== Advanced 10-Band EQ + Spatial Audio Engine ======
         const EQ_BANDS = [
-            { label: "31", frequency: 31 }, { label: "62", frequency: 62 },
-            { label: "125", frequency: 125 }, { label: "250", frequency: 250 },
-            { label: "500", frequency: 500 }, { label: "1k", frequency: 1000 },
-            { label: "2k", frequency: 2000 }, { label: "4k", frequency: 4000 },
-            { label: "8k", frequency: 8000 }, { label: "16k", frequency: 16000 }
+            { label: "31", frequency: 31 }, { label: "50", frequency: 50 },
+            { label: "80", frequency: 80 }, { label: "125", frequency: 125 },
+            { label: "200", frequency: 200 }, { label: "315", frequency: 315 },
+            { label: "500", frequency: 500 }, { label: "800", frequency: 800 },
+            { label: "1.25k", frequency: 1250 }, { label: "2k", frequency: 2000 },
+            { label: "3.15k", frequency: 3150 }, { label: "5k", frequency: 5000 },
+            { label: "8k", frequency: 8000 }, { label: "12.5k", frequency: 12500 },
+            { label: "16k", frequency: 16000 }
         ];
         const EQ_PRESETS = {
-            Flat: [0,0,0,0,0,0,0,0,0,0],
-            Rock: [5,4,3,1,-1,-1,2,3,4,5],
-            Pop: [-1,1,3,4,2,0,2,3,2,1],
-            Classical: [4,3,2,1,-1,-1,0,2,3,4],
-            Vocal: [-2,-1,0,2,4,4,3,2,0,-1]
+            Flat:       [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            Rock:       [5,5,4,3,2,0,-1,-1,0,2,3,4,5,5,4],
+            Pop:        [-1,0,1,3,4,4,3,1,0,2,3,3,2,1,0],
+            Classical:  [4,4,3,2,1,0,-1,-1,0,1,2,3,4,4,3],
+            Vocal:      [-3,-2,-1,1,3,4,5,5,4,3,2,1,0,-1,-2],
+            Jazz:       [3,3,2,1,-1,-2,0,2,3,4,3,2,3,3,2],
+            EDM:        [5,5,4,1,-1,-2,1,3,4,3,1,3,4,5,5],
+            Acoustic:   [3,2,1,0,-1,0,2,3,3,2,2,3,3,2,1],
+            "Hip-Hop":  [5,5,4,3,1,-1,-2,0,1,2,2,1,0,-1,-2],
+            Podcast:    [-2,-1,0,2,4,5,5,4,3,1,0,-1,-2,-3,-3]
         };
-        let audioCtx = null, sourceNode = null, eqFilters = [], bassFilter = null;
+        let audioCtx = null, sourceNode = null, preampNode = null, eqFilters = [], bassFilter = null, trebleFilter = null;
         let splitter = null, merger = null, crossDelayL = null, crossDelayR = null;
         let crossGainL = null, crossGainR = null, directGainL = null, directGainR = null;
         let convolver = null, reverbWet = null, reverbDry = null;
+        let compressorNode = null, masterGainNode = null, stereoPannerNode = null;
         let eqEnabled = false;
         const eqToggleBtn = document.getElementById('eqToggleBtn');
         const eqStatusText = document.getElementById('eqStatusText');
         const eqPanel = document.getElementById('eqPanel');
         const eqBandsNode = document.getElementById('eqBands');
         const eqEngineStatus = document.getElementById('eqEngineStatus');
-        const eqState = { bands: [...EQ_PRESETS.Flat], bass: 0, ambience: 0, surround: 0 };
+        const EQ_DEFAULT_STATE = { bands: [...EQ_PRESETS.Flat], bass: 0, treble: 0, preamp: 0, compression: 0, balance: 0, ambience: 0, surround: 0 };
+        let eqState = (() => {
+            try {
+                const saved = JSON.parse(localStorage.getItem('radioHavokkEQ'));
+                if (!saved || typeof saved !== 'object') return { ...EQ_DEFAULT_STATE, bands: [...EQ_DEFAULT_STATE.bands] };
+                return {
+                    ...EQ_DEFAULT_STATE,
+                    ...saved,
+                    bands: Array.isArray(saved.bands) && saved.bands.length === EQ_BANDS.length
+                        ? saved.bands.map(value => Math.max(-12, Math.min(12, Number(value) || 0)))
+                        : [...EQ_DEFAULT_STATE.bands]
+                };
+            } catch (error) {
+                return { ...EQ_DEFAULT_STATE, bands: [...EQ_DEFAULT_STATE.bands] };
+            }
+        })();
+
+        function saveEQState() {
+            try { localStorage.setItem('radioHavokkEQ', JSON.stringify(eqState)); } catch (error) { /* storage may be unavailable */ }
+        }
 
         function buildEQControls() {
             eqBandsNode.innerHTML = EQ_BANDS.map((band, index) => `
@@ -251,7 +278,7 @@
         }
 
         function makeReverbImpulse(ctx) {
-            const length = Math.floor(ctx.sampleRate * 2.4);
+            const length = Math.floor(ctx.sampleRate * 1.8);
             const impulse = ctx.createBuffer(2, length, ctx.sampleRate);
             for (let channel = 0; channel < 2; channel++) {
                 const data = impulse.getChannelData(channel);
@@ -267,23 +294,30 @@
             try {
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                 sourceNode = audioCtx.createMediaElementSource(audioEngineNode);
+                preampNode = audioCtx.createGain();
                 eqFilters = EQ_BANDS.map((band, index) => {
                     const filter = audioCtx.createBiquadFilter();
                     filter.type = 'peaking';
                     filter.frequency.value = band.frequency;
-                    filter.Q.value = 1.05;
+                    filter.Q.value = 1.0;
                     filter.gain.value = eqState.bands[index];
                     return filter;
                 });
                 bassFilter = audioCtx.createBiquadFilter();
                 bassFilter.type = 'lowshelf';
-                bassFilter.frequency.value = 100;
+                bassFilter.frequency.value = 95;
                 bassFilter.gain.value = eqState.bass;
+                trebleFilter = audioCtx.createBiquadFilter();
+                trebleFilter.type = 'highshelf';
+                trebleFilter.frequency.value = 6500;
+                trebleFilter.gain.value = eqState.treble;
 
+                sourceNode.connect(preampNode);
                 eqFilters.reduce((previous, current) => {
                     previous.connect(current);
                     return current;
-                }, sourceNode).connect(bassFilter);
+                }, preampNode).connect(bassFilter);
+                bassFilter.connect(trebleFilter);
 
                 // Stereo cross-feed creates a wider headphone/speaker image.
                 splitter = audioCtx.createChannelSplitter(2);
@@ -291,7 +325,7 @@
                 directGainL = audioCtx.createGain(); directGainR = audioCtx.createGain();
                 crossGainL = audioCtx.createGain(); crossGainR = audioCtx.createGain();
                 crossDelayL = audioCtx.createDelay(0.04); crossDelayR = audioCtx.createDelay(0.04);
-                bassFilter.connect(splitter);
+                trebleFilter.connect(splitter);
                 splitter.connect(directGainL, 0); directGainL.connect(merger, 0, 0);
                 splitter.connect(directGainR, 1); directGainR.connect(merger, 0, 1);
                 splitter.connect(crossDelayL, 0); crossDelayL.connect(crossGainL); crossGainL.connect(merger, 0, 1);
@@ -301,8 +335,18 @@
                 reverbWet = audioCtx.createGain();
                 convolver = audioCtx.createConvolver();
                 convolver.buffer = makeReverbImpulse(audioCtx);
-                merger.connect(reverbDry); reverbDry.connect(audioCtx.destination);
-                merger.connect(convolver); convolver.connect(reverbWet); reverbWet.connect(audioCtx.destination);
+                compressorNode = audioCtx.createDynamicsCompressor();
+                compressorNode.knee.value = 6;
+                compressorNode.attack.value = 0.003;
+                compressorNode.release.value = 0.18;
+                masterGainNode = audioCtx.createGain();
+                stereoPannerNode = audioCtx.createStereoPanner();
+                reverbDry.connect(compressorNode);
+                convolver.connect(reverbWet);
+                reverbWet.connect(compressorNode);
+                compressorNode.connect(masterGainNode);
+                masterGainNode.connect(stereoPannerNode);
+                stereoPannerNode.connect(audioCtx.destination);
                 applyEQSettings();
                 return true;
             } catch (error) {
@@ -315,7 +359,14 @@
         function applyEQSettings() {
             if (!audioCtx) return;
             eqFilters.forEach((filter, i) => filter.gain.setTargetAtTime(eqState.bands[i], audioCtx.currentTime, 0.025));
+            preampNode.gain.setTargetAtTime(Math.pow(10, eqState.preamp / 20), audioCtx.currentTime, 0.025);
             bassFilter.gain.setTargetAtTime(eqState.bass, audioCtx.currentTime, 0.025);
+            trebleFilter.gain.setTargetAtTime(eqState.treble, audioCtx.currentTime, 0.025);
+            stereoPannerNode.pan.setTargetAtTime(eqState.balance / 100, audioCtx.currentTime, 0.03);
+            const compression = eqState.compression / 100;
+            compressorNode.threshold.setTargetAtTime(compression ? -6 - compression * 20 : 0, audioCtx.currentTime, 0.04);
+            compressorNode.ratio.setTargetAtTime(compression ? 1 + compression * 11 : 1, audioCtx.currentTime, 0.04);
+            compressorNode.knee.setTargetAtTime(compression ? 6 : 0, audioCtx.currentTime, 0.04);
             const width = eqState.surround / 100;
             const cross = width * 0.28;
             directGainL.gain.setTargetAtTime(1 - cross * 0.35, audioCtx.currentTime, 0.03);
@@ -327,6 +378,7 @@
             const wet = eqState.ambience / 100 * 0.45;
             reverbWet.gain.setTargetAtTime(wet, audioCtx.currentTime, 0.04);
             reverbDry.gain.setTargetAtTime(1 - wet * 0.35, audioCtx.currentTime, 0.04);
+            saveEQState();
         }
 
         function syncEQUI() {
@@ -342,6 +394,14 @@
             document.getElementById('ambienceValue').textContent = eqState.ambience + '%';
             document.getElementById('surroundSlider').value = eqState.surround;
             document.getElementById('surroundValue').textContent = eqState.surround + '%';
+            document.getElementById('preampSlider').value = eqState.preamp;
+            document.getElementById('preampValue').textContent = (eqState.preamp > 0 ? '+' : '') + eqState.preamp + ' dB';
+            document.getElementById('trebleSlider').value = eqState.treble;
+            document.getElementById('trebleValue').textContent = (eqState.treble > 0 ? '+' : '') + eqState.treble + ' dB';
+            document.getElementById('compressionSlider').value = eqState.compression;
+            document.getElementById('compressionValue').textContent = eqState.compression + '%';
+            document.getElementById('balanceSlider').value = eqState.balance;
+            document.getElementById('balanceValue').textContent = eqState.balance === 0 ? 'Center' : (eqState.balance < 0 ? 'L ' + Math.abs(eqState.balance) : 'R ' + eqState.balance);
         }
 
         function setActivePreset(name) {
@@ -351,14 +411,16 @@
         function setPreset(name) {
             if (!EQ_PRESETS[name]) return;
             eqState.bands = [...EQ_PRESETS[name]];
-            if (name === 'Flat') { eqState.bass = 0; eqState.ambience = 0; eqState.surround = 0; }
-            syncEQUI(); applyEQSettings(); setActivePreset(name);
+            if (name === 'Flat') {
+                eqState.bass = 0; eqState.treble = 0; eqState.preamp = 0;
+                eqState.compression = 0; eqState.balance = 0; eqState.ambience = 0; eqState.surround = 0;
+            }
+            syncEQUI(); applyEQSettings(); setActivePreset(name); saveEQState();
         }
 
         function openEQPanel() {
             eqPanel.classList.add('open');
-            eqPanel.setAttribute('aria-hidden', 'false');
-            if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+            eqPanel.setAttribute('aria-hidden', 'false');            if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
         }
         function closeEQPanel() {
             eqPanel.classList.remove('open');
@@ -367,6 +429,7 @@
 
         buildEQControls();
         syncEQUI();
+        saveEQState();
         eqToggleBtn.addEventListener('click', () => {
             openEQPanel();
             if (globalActiveIndex !== null) {
@@ -394,6 +457,26 @@
             eqState.surround = Number(event.target.value);
             document.getElementById('surroundValue').textContent = eqState.surround + '%';
             applyEQSettings();
+        });
+        document.getElementById('preampSlider').addEventListener('input', event => {
+            eqState.preamp = Number(event.target.value);
+            document.getElementById('preampValue').textContent = (eqState.preamp > 0 ? '+' : '') + eqState.preamp + ' dB';
+            applyEQSettings(); setActivePreset(null);
+        });
+        document.getElementById('trebleSlider').addEventListener('input', event => {
+            eqState.treble = Number(event.target.value);
+            document.getElementById('trebleValue').textContent = (eqState.treble > 0 ? '+' : '') + eqState.treble + ' dB';
+            applyEQSettings(); setActivePreset(null);
+        });
+        document.getElementById('compressionSlider').addEventListener('input', event => {
+            eqState.compression = Number(event.target.value);
+            document.getElementById('compressionValue').textContent = eqState.compression + '%';
+            applyEQSettings(); setActivePreset(null);
+        });
+        document.getElementById('balanceSlider').addEventListener('input', event => {
+            eqState.balance = Number(event.target.value);
+            document.getElementById('balanceValue').textContent = eqState.balance === 0 ? 'Center' : (eqState.balance < 0 ? 'L ' + Math.abs(eqState.balance) : 'R ' + eqState.balance);
+            applyEQSettings(); setActivePreset(null);
         });
 
         // ====== Keyboard Shortcuts ======
@@ -537,8 +620,7 @@
                 renderNowPlaying(node, cached);
                 return;
             }
-            if (metadataInFlight.has(streamUrl)) return;
-            metadataInFlight.add(streamUrl);
+            if (metadataInFlight.has(streamUrl)) return;            metadataInFlight.add(streamUrl);
             node.innerHTML = `<span><i data-lucide="music-4" class="w-3 h-3 inline pb-0.5"></i></span> Checking info...`;
             if(window.lucide) lucide.createIcons({root: node});
             
@@ -758,32 +840,3 @@
                 }
             });
             if(window.lucide) lucide.createIcons();
-        }
-
-        bottomPlayPauseBtn.addEventListener('click', toggleGlobalPlayPause);
-        mobilePlayPauseBtn.addEventListener('click', toggleGlobalPlayPause);
-
-        volumeSlider.addEventListener('input', (e) => audioEngineNode.volume = e.target.value);
-        audioEngineNode.addEventListener('play', () => { if (!isPlayingState) triggerPlayStateUI(); });
-        audioEngineNode.addEventListener('pause', () => { if (isPlayingState) triggerPauseStateUI(); });
-
-        searchNode.addEventListener('input', (e) => {
-            filterSearchText = e.target.value;
-            buildInterfaceGrid();
-        });
-
-        // Updated Filter Tab Classes Logic
-        document.querySelectorAll('.filter-tab').forEach(tab => {
-            tab.addEventListener('click', (e) => {
-                document.querySelectorAll('.filter-tab').forEach(t => {
-                    t.className = "filter-tab inactive-filter-tab px-5 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all border border-white/10 bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-white flex items-center gap-2";
-                });
-
-                e.currentTarget.className = "filter-tab active-filter-tab px-5 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all border border-white/10 bg-white text-black shadow-md flex items-center gap-2";
-
-                activeTagFilter = e.currentTarget.dataset.target;
-                buildInterfaceGrid();
-            });
-        });
-
-        buildInterfaceGrid();
