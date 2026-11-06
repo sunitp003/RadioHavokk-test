@@ -217,12 +217,12 @@
                 
                 bassFilter = audioCtx.createBiquadFilter();
                 bassFilter.type = "lowshelf";
-                bassFilter.frequency.value = 200;
+                bassFilter.frequency.value = 60;
                 bassFilter.gain.value = 0; // default 0
 
                 trebleFilter = audioCtx.createBiquadFilter();
                 trebleFilter.type = "highshelf";
-                trebleFilter.frequency.value = 3000;
+                trebleFilter.frequency.value = 12000;
                 trebleFilter.gain.value = 0; // default 0
 
                 // Ten-band EQ: bass shelf + eight peaking bands + treble shelf.
