@@ -83,6 +83,23 @@
             <button class="filter-tab inactive-filter-tab px-5 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all border border-white/10 bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-white" data-target="Modern">Modern</button>
         </div>
 
+        <!-- Station sorting -->
+        <div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-xl px-4 py-3">
+            <div>
+                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-400">Your station library</p>
+                <p class="text-xs text-zinc-500 mt-1">Sort stations without changing your filters</p>
+            </div>
+            <label class="flex items-center gap-2 text-xs text-zinc-400">
+                <span>Sort by</span>
+                <select id="stationSort" class="rounded-xl border border-white/10 bg-zinc-900 px-3 py-2 text-zinc-100 outline-none focus:border-emerald-500/60">
+                    <option value="default">Default order</option>
+                    <option value="az">Name A–Z</option>
+                    <option value="favorites">Favorites first</option>
+                    <option value="recent">Recently played</option>
+                </select>
+            </label>
+        </div>
+
         <!-- Dynamic Content Response Area Grid -->
         <div id="cardsLayoutGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
             <!-- Render cards via js layout -->

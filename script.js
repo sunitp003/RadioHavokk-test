@@ -217,17 +217,54 @@
                 
                 bassFilter = audioCtx.createBiquadFilter();
                 bassFilter.type = "lowshelf";
-                bassFilter.frequency.value = 200;
+                bassFilter.frequency.value = 60;
                 bassFilter.gain.value = 0; // default 0
 
                 trebleFilter = audioCtx.createBiquadFilter();
                 trebleFilter.type = "highshelf";
-                trebleFilter.frequency.value = 3000;
+                trebleFilter.frequency.value = 12000;
                 trebleFilter.gain.value = 0; // default 0
 
+                // Ten-band EQ: bass shelf + eight peaking bands + treble shelf.
+                const bandFrequencies = [62, 125, 250, 500, 1000, 2000, 4000, 8000];
+                window.radioHavokkEqBands = bandFrequencies.map((frequency) => {
+                    const filter = audioCtx.createBiquadFilter();
+                    filter.type = 'peaking';
+                    filter.frequency.value = frequency;
+                    filter.Q.value = 1.1;
+                    filter.gain.value = 0;
+                    return filter;
+                });
+
+                // Add a subtle, user-adjustable ambience path for a wider listening feel.
+                const dryGain = audioCtx.createGain();
+                const wetGain = audioCtx.createGain();
+                const ambience = audioCtx.createConvolver();
+                const impulseLength = Math.floor(audioCtx.sampleRate * 1.25);
+                const impulse = audioCtx.createBuffer(2, impulseLength, audioCtx.sampleRate);
+                for (let channel = 0; channel < 2; channel++) {
+                    const data = impulse.getChannelData(channel);
+                    for (let i = 0; i < impulseLength; i++) {
+                        data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / impulseLength, 3);
+                    }
+                }
+                ambience.buffer = impulse;
+                window.radioHavokkAmbience = { dryGain, wetGain, ambience };
+                dryGain.gain.value = 1;
+                wetGain.gain.value = 0;
+
                 sourceNode.connect(bassFilter);
-                bassFilter.connect(trebleFilter);
-                trebleFilter.connect(audioCtx.destination);
+                let previousFilter = bassFilter;
+                window.radioHavokkEqBands.forEach(filter => {
+                    previousFilter.connect(filter);
+                    previousFilter = filter;
+                });
+                previousFilter.connect(trebleFilter);
+                trebleFilter.connect(dryGain);
+                dryGain.connect(audioCtx.destination);
+                trebleFilter.connect(ambience);
+                ambience.connect(wetGain);
+                wetGain.connect(audioCtx.destination);
             } catch (e) {
                 console.log("Web Audio API not supported on this browser or stream restricts CORS.");
             }
@@ -291,6 +328,19 @@
                     item.tags.some(tag => tag.toLowerCase().includes(filterSearchText.toLowerCase()));
                 return filterMatch && stringMatch;
             });
+
+            const sortMode = stationSortNode ? stationSortNode.value : 'default';
+            if (sortMode === 'az') {
+                datasets.sort((a, b) => a.name.localeCompare(b.name));
+            } else if (sortMode === 'favorites') {
+                datasets.sort((a, b) => Number(favoritesList.includes(b.name)) - Number(favoritesList.includes(a.name)) || a.name.localeCompare(b.name));
+            } else if (sortMode === 'recent') {
+                datasets.sort((a, b) => {
+                    const ai = recentStations.indexOf(a.name);
+                    const bi = recentStations.indexOf(b.name);
+                    return (ai < 0 ? 99999 : ai) - (bi < 0 ? 99999 : bi) || a.name.localeCompare(b.name);
+                });
+            }
 
             if (datasets.length === 0) {
                 gridNode.innerHTML = `<div class="col-span-full py-16 text-center text-sm text-zinc-500 font-medium flex flex-col items-center gap-3"><i data-lucide="radio-receiver" class="w-10 h-10 opacity-50"></i>No stations found matching filters.</div>`;
@@ -491,6 +541,8 @@
             }
             globalActiveIndex = databaseIndex;
             isPlayingState = false;
+            recentStations = [item.name, ...recentStations.filter(name => name !== item.name)].slice(0, 50);
+            try { localStorage.setItem('radioRecentStations', JSON.stringify(recentStations)); } catch (_) {}
             buildInterfaceGrid();
 
             if (currentHlsEngineInstance) {
@@ -642,3 +694,90 @@
         });
 
         buildInterfaceGrid();
+
+
+// Radio Havokk enhancement controls: 10-band EQ presets + ambience slider + sorting.
+(function initRadioHavokkEnhancements() {
+    const sortControl = document.getElementById('stationSort');
+    if (sortControl) sortControl.addEventListener('change', buildInterfaceGrid);
+
+    const eqPanel = document.createElement('section');
+    eqPanel.id = 'advancedEqPanel';
+    eqPanel.className = 'eq-glass-panel hidden fixed bottom-28 right-4 z-[60] w-[min(92vw,390px)] max-h-[68vh] overflow-y-auto rounded-2xl border border-emerald-400/20 bg-[#090d12]/95 p-4 shadow-2xl backdrop-blur-2xl';
+    eqPanel.innerHTML = `
+        <div class="flex items-center justify-between gap-3 mb-4">
+            <div><p class="text-sm font-bold text-white">Advanced Equalizer</p><p class="text-[11px] text-zinc-400">10-band sound tuning</p></div>
+            <button id="eqCloseBtn" class="rounded-lg bg-white/10 px-2.5 py-1.5 text-xs text-zinc-300">Close</button>
+        </div>
+        <label class="block text-xs text-zinc-400 mb-3">Preset
+            <select id="eqPreset" class="mt-1 w-full rounded-lg border border-white/10 bg-zinc-900 p-2 text-sm text-white">
+                <option value="flat">Flat</option><option value="bass">Bass Boost</option><option value="rock">Rock</option>
+                <option value="pop">Pop</option><option value="classical">Classical</option><option value="vocal">Vocal</option>
+            </select>
+        </label>
+        <div id="eqBandControls" class="grid grid-cols-5 gap-x-3 gap-y-4"></div>
+        <div class="mt-5 border-t border-white/10 pt-4">
+            <div class="flex justify-between text-xs text-zinc-300"><label for="spatialSlider">Spatial ambience</label><output id="spatialValue">0%</output></div>
+            <input id="spatialSlider" type="range" min="0" max="35" value="0" class="mt-3 w-full accent-emerald-400">
+            <p class="mt-1 text-[10px] text-zinc-500">Adds a subtle stereo-room reverb effect; it is not true surround audio.</p>
+        </div>`;
+    document.body.appendChild(eqPanel);
+
+    const bandHost = eqPanel.querySelector('#eqBandControls');
+    const labels = ['31','62','125','250','500','1k','2k','4k','8k','16k'];
+    labels.forEach((label, index) => {
+        const item = document.createElement('label');
+        item.className = 'flex flex-col items-center gap-2 text-[10px] text-zinc-400';
+        item.innerHTML = '<input class="eq-band-slider h-24 w-5 accent-emerald-400" type="range" min="-12" max="12" value="0" step="1" orient="vertical" data-index="' + index + '"><span>' + label + '</span><output class="text-emerald-300">0</output>';
+        bandHost.appendChild(item);
+    });
+
+    const openBtn = document.getElementById('eqToggleBtn');
+    const openPanel = () => {
+        if (typeof initAudioEQ === 'function') initAudioEQ();
+        if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+        eqPanel.classList.remove('hidden');
+    };
+    openBtn.addEventListener('click', openPanel);
+    eqPanel.querySelector('#eqCloseBtn').addEventListener('click', () => eqPanel.classList.add('hidden'));
+
+    function setBand(index, value) {
+        const bands = window.radioHavokkEqBands || [];
+        if (index === 0 && bassFilter) bassFilter.gain.value = Number(value);
+        else if (index === 9 && trebleFilter) trebleFilter.gain.value = Number(value);
+        else if (bands[index - 1]) bands[index - 1].gain.value = Number(value);
+        const slider = bandHost.querySelector('[data-index="' + index + '"]');
+        if (slider) slider.nextElementSibling.nextElementSibling.value = value;
+    }
+    bandHost.querySelectorAll('.eq-band-slider').forEach(slider => {
+        slider.addEventListener('input', () => setBand(Number(slider.dataset.index), slider.value));
+    });
+
+    const presets = {
+        flat: [0,0,0,0,0,0,0,0,0,0],
+        bass: [8,7,5,2,0,0,-1,-2,-2,-1],
+        rock: [5,5,4,2,-1,-2,2,4,5,5],
+        pop: [-1,-1,1,4,5,2,-1,1,3,2],
+        classical: [4,3,3,1,0,-2,1,3,4,4],
+        vocal: [-3,-2,-1,1,4,5,4,1,-1,-2]
+    };
+    eqPanel.querySelector('#eqPreset').addEventListener('change', event => {
+        const values = presets[event.target.value] || presets.flat;
+        values.forEach((value, index) => {
+            const slider = bandHost.querySelector('[data-index="' + index + '"]');
+            slider.value = value;
+            setBand(index, value);
+        });
+
+    });
+
+    const spatial = eqPanel.querySelector('#spatialSlider');
+    spatial.addEventListener('input', () => {
+        const amount = Number(spatial.value) / 100;
+        if (window.radioHavokkAmbience) {
+            window.radioHavokkAmbience.dryGain.gain.value = 1 - amount * 0.35;
+            window.radioHavokkAmbience.wetGain.gain.value = amount;
+        }
+        eqPanel.querySelector('#spatialValue').value = spatial.value + '%';
+    });
+})();
