@@ -159,7 +159,12 @@
                     <h2 id="eqPanelTitle">Advanced Equalizer</h2>
                     <p class="eq-muted">Shape your sound in real time</p>
                 </div>
-                <button id="eqCloseBtn" class="eq-close" aria-label="Close equalizer">×</button>
+                <div class="eq-header-actions">
+                    <button id="eqMasterToggleBtn" class="eq-master-toggle" type="button" aria-pressed="false">
+                        <span class="eq-master-indicator"></span><span id="eqMasterToggleText">EQ OFF</span>
+                    </button>
+                    <button id="eqCloseBtn" class="eq-close" aria-label="Close equalizer">×</button>
+                </div>
             </div>
             <div class="eq-presets" id="eqPresets">
                 <button data-preset="Flat" class="eq-preset active">Flat</button>
