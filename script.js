@@ -333,15 +333,15 @@
                         </div>
                     </div>
                     
-                    <button class="play-btn absolute bottom-4 right-4 w-10 h-10 bg-emerald-500 hover:bg-emerald-400 text-black rounded-full flex items-center justify-center shadow-lg transform translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all z-10 ${globalActiveIndex === rawDbIndex ? 'translate-y-0 opacity-100' : ''}">
+                    <button class="play-btn absolute bottom-4 right-4 w-10 h-10 bg-emerald-500 hover:bg-emerald-400 text-black rounded-full flex items-center justify-center shadow-lg transform translate-y-2 opacity-100 translate-y-0 transition-all z-10 ${globalActiveIndex === rawDbIndex ? 'translate-y-0 opacity-100' : ''}">
                         <i data-lucide="${playIcon}" class="w-4 h-4 ${playIcon === 'play' ? 'ml-0.5' : ''} play-icon-node"></i>
                     </button>
                 `;
 
-                card.addEventListener('click', (e) => {
-                    if(e.target.closest('.fav-btn') || e.target.closest('.play-btn')) return;
-                    if (globalActiveIndex !== rawDbIndex) bootStreamEngine(data, rawDbIndex);
-                });
+                // card.addEventListener('click', (e) => {
+                //     if(e.target.closest('.fav-btn') || e.target.closest('.play-btn')) return;
+                //     if (globalActiveIndex !== rawDbIndex) bootStreamEngine(data, rawDbIndex);
+                // });
 
                 card.querySelector('.play-btn').addEventListener('click', (e) => {
                     e.stopPropagation();
