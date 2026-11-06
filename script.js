@@ -52,13 +52,13 @@
         let globalActiveIndex = null;
         let isPlayingState = false;
 
-        let favoritesList = [];
-        try {
-            let parsed = JSON.parse(localStorage.getItem('radioFavorites'));
-            favoritesList = Array.isArray(parsed) ? parsed : [];
-        } catch (e) {
-            favoritesList = [];
-        }
+       let favoritesList = [];
+try {
+    let parsed = JSON.parse(localStorage.getItem('radioFavorites'));
+    favoritesList = Array.isArray(parsed) ? parsed : [];
+} catch (e) {
+    favoritesList = [];
+}
 
         const gridNode = document.getElementById('cardsLayoutGrid');
         const searchNode = document.getElementById('globalSearch');
